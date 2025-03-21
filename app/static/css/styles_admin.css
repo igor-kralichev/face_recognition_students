@@ -1,0 +1,694 @@
+/* ===== Общие стили ===== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: linear-gradient(to bottom, #e6f4ea, #c3e6cb);
+    color: #333;
+    padding: 20px;
+    min-height: 100vh;
+}
+
+/* ===== Верхнее меню (Navbar) ===== */
+.navbar {
+    background: linear-gradient(90deg, #17a2b8, #138496);
+    color: #fff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    margin-bottom: 20px;
+    border-radius: 5px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+}
+
+.navbar:hover {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.nav-left a,
+.nav-right a {
+    color: #fff;
+    text-decoration: none;
+    margin-right: 15px;
+    font-weight: bold;
+    padding: 8px 15px;
+    border-radius: 5px;
+    transition: all 0.3s ease;
+}
+
+.nav-left a:hover {
+    color: #e0f7ff;
+    background-color: rgba(255, 255, 255, 0.2);
+    text-decoration: none;
+}
+
+.nav-right a:hover {
+    color: #e0f7ff;
+    /*background-color: rgba(255, 255, 255, 0.2);*/
+    text-decoration: none;
+}
+
+.nav-link {
+    display: inline-block;
+}
+
+.logout {
+    background-color: #dc3545;
+    padding: 8px 15px;
+    border-radius: 5px;
+}
+
+.logout:hover {
+    background-color: #c82333;
+    color: #fff;
+}
+
+/* ===== Контейнер приветствия ===== */
+.welcome-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: calc(100vh - 100px); /* Вычитаем высоту navbar и padding */
+}
+
+.welcome-card {
+    background-color: #fff;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    width: 100%;
+    max-width: 600px;
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+/* Анимация появления */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.welcome-title {
+    font-size: 2.5em;
+    color: #17a2b8; /* Бирюзовый цвет для заголовка */
+    margin-bottom: 15px;
+    font-weight: bold;
+}
+
+.welcome-text {
+    font-size: 1.2em;
+    color: #666;
+    margin-bottom: 20px;
+}
+
+/* ===== Основной контейнер ===== */
+.container {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Заголовок страницы внутри контейнера */
+.container h2 {
+    margin-bottom: 20px;
+}
+
+/* ===== Фильтр по группам ===== */
+label[for="groupFilter"] {
+    font-weight: bold;
+}
+
+select#groupFilter {
+    padding: 5px 10px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    margin-left: 10px;
+}
+
+/* ===== Таблица ===== */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+table th,
+table td {
+    padding: 10px;
+    border: 1px solid #ddd;
+    text-align: left;
+}
+
+table th {
+    background-color: #f8f9fa;
+    font-weight: bold;
+}
+
+/* ===== Сообщения об ошибке ===== */
+.error-message {
+    color: red;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+/* ===== Форма регистрации ===== */
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-sizing: border-box;
+}
+
+.form-group input:invalid,
+.form-group select:invalid {
+    border-color: #dc3545;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: #17a2b8;
+    box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+}
+
+.group-block {
+    margin-bottom: 20px; /* Отступ снизу для каждого блока */
+}
+
+.error {
+    color: #dc3545;
+    font-size: 0.9em;
+    display: block;
+    margin-top: 5px;
+}
+
+/* Дополнительные сообщения (ошибка/успех) */
+.flash-error {
+    color: red;
+    margin-bottom: 10px;
+    padding: 10px;
+    background-color: #ffebee;
+    border-radius: 3px;
+}
+
+.flash-success {
+    color: green;
+    margin-bottom: 10px;
+    padding: 10px;
+    background-color: #e8f5e9;
+    border-radius: 3px;
+}
+
+/* ===== Кастомный выпадающий список ===== */
+.custom-select {
+    position: relative;
+    width: 100%;
+}
+
+.select-selected {
+    background-color: #fff;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.select-selected:hover {
+    background-color: #f8f9fa;
+}
+
+.select-items {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-top: none;
+    border-radius: 0 0 5px 5px;
+    display: none;
+    z-index: 1;
+}
+
+.select-items div {
+    padding: 8px;
+    cursor: pointer;
+}
+
+.select-items div:hover {
+    background-color: #f8f9fa;
+}
+
+/* ===== Таблица пользователей и добавление пользователей ===== */
+#usersTable {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+#usersTable th,
+#usersTable td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+#usersTable th {
+    background-color: #f8f9fa;
+}
+
+/* Повторное определение кастомного select (без изменений) */
+.custom-select {
+    position: relative;
+    width: 100%;
+}
+
+.select-selected {
+    background-color: #fff;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.select-items {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-top: none;
+    border-radius: 0 0 5px 5px;
+    display: none;
+    z-index: 1;
+}
+
+.select-items div {
+    padding: 8px;
+    cursor: pointer;
+}
+
+.select-items div:hover {
+    background-color: #f8f9fa;
+}
+
+/* Дополнительные стили для ошибок в таблице */
+.error {
+    color: red;
+    font-size: 0.9em;
+}
+
+/* ===== Секция кнопок ===== */
+/* Группа кнопок */
+.button-group {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+/* Стандартные кнопки */
+.button {
+    background-color: #007bff;
+    color: #fff;
+    padding: 10px 20px;
+    text-decoration: none;
+    border-radius: 5px;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+
+.button:hover {
+    background-color: #0056b3;
+    text-decoration: none;
+}
+
+/* Кнопка для экспорта (Excel) */
+.export-button-no-attendance {
+    background-color: #28a745; /* Зелёный цвет */
+    float: right; /* Расположение справа */
+}
+
+.export-button-no-attendance:hover {
+    background-color: #218838; /* Более тёмный зелёный при наведении */
+}
+
+/* Кнопка для удаления строки */
+.removeRow {
+    background-color: #dc3545; /* Красный фон */
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.removeRow:hover {
+    background-color: #c82333;
+}
+
+/* Кнопка с отступом сверху */
+#finishBtn {
+    margin-top: 20px; /* Отступ сверху в 20 пикселей */
+}
+
+/* Стили для переключателя режимов */
+.mode-switcher {
+    margin-bottom: 20px;
+}
+
+.mode-switcher button {
+    margin-right: 10px;
+    padding: 10px 20px;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+/* ===== Таблица пользователей (альтернативное отображение) ===== */
+#usersTableDisplay {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+}
+
+#usersTableDisplay th,
+#usersTableDisplay td {
+    padding: 10px;
+    border: 1px solid #ddd;
+    text-align: left;
+}
+
+#usersTableDisplay th {
+    background-color: #f8f9fa;
+}
+
+#usersTableDisplay .deleteUser {
+    background-color: #dc3545; /* Красный для удаления */
+    color: white;
+}
+
+#usersTableDisplay .deleteUser:hover {
+    background-color: #c82333;
+}
+
+#usersTableDisplay .editUser {
+    background-color: #28a745; /* Зелёный для редактирования */
+    color: white;
+}
+
+#usersTableDisplay .editUser:hover {
+    background-color: #218838;
+}
+
+/* ===== Форма регистрации (повторное определение) ===== */
+#registerFormContainer {
+    margin-top: 20px;
+}
+
+#usersTable {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#usersTable th,
+#usersTable td {
+    padding: 10px;
+    border: 1px solid #ddd;
+    text-align: left;
+}
+
+#usersTable input,
+#usersTable select {
+    width: 100%;
+    padding: 5px;
+}
+
+/* Повторное определение кастомного select (компактное) */
+.custom-select {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+}
+
+.select-selected {
+    background-color: #fff;
+    padding: 5px;
+    border: 1px solid #ddd;
+    cursor: pointer;
+}
+
+.select-items {
+    position: absolute;
+    background-color: #fff;
+    border: 1px solid #ddd;
+    z-index: 99;
+    display: none;
+}
+
+.select-items div {
+    padding: 5px;
+    cursor: pointer;
+}
+
+.select-items div:hover {
+    background-color: #f1f1f1;
+}
+
+/* Дополнительное определение ошибок */
+.error {
+    color: red;
+    font-size: 0.9em;
+}
+
+/* ===== Расположение кнопки "Логин и пароль" ===== */
+.login-pass-button {
+    float: right; /* Расположение справа */
+}
+
+/* ===== Строка поиска ===== */
+.searchFio {
+    margin-bottom: 10px;
+    padding: 5px;
+    width: 300px;
+}
+
+/* ===== Сортировка столбцов ===== */
+.sort-indicator {
+    display: inline-block;
+    width: 10px;
+    text-align: center;
+    color: #000; /* Черный по умолчанию */
+    cursor: pointer;
+    opacity: 1; /* Полная видимость по умолчанию */
+}
+
+.sort-indicator.transparent {
+    opacity: 0; /* Прозрачный для неактивного направления */
+}
+
+#usersTableDisplay thead th {
+    pointer-events: auto;
+}
+
+th[data-column] {
+    cursor: pointer; /* Указывает, что столбец кликабелен */
+}
+
+/* ===== Модальное окно смены пароля ===== */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+    background-color: #fff;
+    margin: 15% auto;
+    padding: 20px;
+    width: 30%;
+    border-radius: 8px;
+    text-align: center;
+    position: relative;
+}
+
+.close {
+    position: absolute;
+    right: 10px;
+    top: 5px;
+    font-size: 25px;
+    cursor: pointer;
+}
+
+/* ===== Секция ввода пароля ===== */
+.password-container {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.password-container input {
+    flex: 1;
+    padding: 5px;
+}
+
+.password-container button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+}
+
+.toggle-password {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+}
+
+/* ===== Затенение фона при открытом модальном окне ===== */
+body.modal-open {
+    overflow: hidden;
+    position: relative;
+}
+
+body.modal-open::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 500;
+}
+
+/* ===== Посещаемость (галочки и крестики) ===== */
+.attendance-status.present {
+    color: green;
+    font-weight: bold;
+}
+
+.attendance-status.absent {
+    color: red;
+    font-weight: bold;
+}
+
+/* ===== Контейнер для фильтров и кнопки ===== */
+.filter-container {
+    display: flex;
+    justify-content: space-between; /* Фильтры слева, кнопка справа */
+    align-items: center; /* Выравнивание по вертикали */
+    margin-bottom: 20px;
+}
+
+/* ===== Стили для фильтров ===== */
+.filters {
+    display: flex;
+    flex-wrap: nowrap; /* Фильтры в одну строку */
+    gap: 15px; /* Расстояние между фильтрами */
+    align-items: center;
+}
+
+/* Фиксированная ширина для фильтров */
+.filter-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.filter-item label {
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.filter-item select,
+.filter-item input[type="date"] {
+    width: 200px; /* Фиксированная ширина */
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+/* Кастомная стрелка для select */
+.filter-item select {
+    appearance: none;
+    background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="5" viewBox="0 0 10 5"><path d="M0 0h10L5 5z" fill="black"/></svg>') no-repeat right 10px center;
+    background-size: 10px;
+    padding-right: 30px;
+}
+
+/* ===== Стили для кнопки "Выгрузить" ===== */
+.export-button {
+    background-color: #28a745;
+    color: #fff;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    white-space: nowrap; /* Предотвращаем перенос текста */
+}
+
+/* ===== Адаптивность для маленьких экранов ===== */
+@media (max-width: 768px) {
+    .filter-container {
+        flex-direction: column; /* Элементы в столбец */
+        align-items: stretch;
+    }
+
+    .filters {
+        width: 100%; /* Фильтры на всю ширину */
+        flex-direction: column; /* Фильтры в столбец */
+        gap: 15px; /* Расстояние между фильтрами */
+    }
+
+    .filter-item {
+        width: 100%; /* Каждый фильтр на всю ширину */
+    }
+
+    .filter-item select,
+    .filter-item input[type="date"] {
+        width: 100%; /* Элементы на всю ширину */
+    }
+
+    .export-button {
+        margin-top: 15px; /* Отступ сверху */
+        width: 100%; /* Кнопка на всю ширину */
+    }
+}

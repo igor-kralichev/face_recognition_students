@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <title>Преподаватель | Запись посещаемости</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles_teacher.css') }}">
+</head>
+<body data-first-start="{{ first_start }}" data-user-id="{{ user_id }}" data-user-type="teacher">
+<!-- Верхнее меню -->
+<nav class="navbar">
+    <div class="nav-left">
+        <a href="{{ url_for('teacher.dashboard') }}" class="nav-link">Проверить посещаемость</a>
+        <a href="{{ url_for('teacher.take_attendance') }}" class="nav-link">Записать посещаемость</a>
+    </div>
+    <div class="nav-right">
+        <a href="{{ url_for('auth.logout') }}" class="nav-link logout">Выйти</a>
+    </div>
+</nav>
+
+<div class="container">
+    <!-- Блок 1: Выбор предмета и группы -->
+    <div id="attendanceSelection">
+        <h2>Выберите предмет и группу для начала записи посещаемости</h2>
+        <form id="selectionForm">
+            <div class="form-group">
+                <label for="subjectSelect">Выберите предмет:</label>
+                <select id="subjectSelect" name="subject" required>
+                    <option value="">--Выберите предмет--</option>
+                    {% for subj in subjects %}
+                        <option value="{{ subj.id }}">{{ subj.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="groupInput">Выберите группу:</label>
+                <input list="groupOptions" id="groupInput" name="group" required
+                       placeholder="Начните вводить название группы">
+                <datalist id="groupOptions">
+                    {% for group in groups %}
+                        <option value="{{ group.groupname }}" data-id="{{ group.id }}">
+                    {% endfor %}
+                </datalist>
+            </div>
+            <button type="button" class="button" id="nextBtn">Далее</button>
+        </form>
+    </div>
+
+    <!-- Блок 2: Запись посещаемости (видео и управление) -->
+    <div id="attendanceRecording">
+        <h2>Запись посещаемости</h2>
+        <div id="controls">
+            <button id="startBtn" class="button start-button">Старт</button>
+            <button id="pauseBtn" class="button pause-button">Пауза</button>
+            <button id="stopBtn" class="button stop-button">Стоп</button>
+        </div>
+        <div id="status" class="status-box"></div>
+        <hr class="divider">
+        <div id="videoAndScreenshotContainer">
+            <div id="videoContainer" class="container-box">
+                <h3>Видео с камеры</h3>
+                <video id="video" width="640" height="480" autoplay></video>
+                <canvas id="canvas" width="640" height="480" style="display: none;"></canvas>
+            </div>
+            <div id="screenshotContainer" class="container-box">
+                <h3>Скриншот с распознаванием</h3>
+                <canvas id="screenshotCanvas" width="640" height="480"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Блок 3: Итоговая таблица посещаемости -->
+    <div id="attendanceSummary">
+        <h2 id="attendanceHeader">
+            На <span id="selectedSubject">[Предмет]</span> явились следующие студенты группы <span id="selectedGroup">[Группа]</span>:
+        </h2>
+        <table id="attendanceTable">
+            <thead>
+            <tr>
+                <th>ФИО студента</th>
+
+
+ <th>Посетил занятие</th>
+            </tr>
+            </thead>
+            <tbody>
+            <!-- Здесь будут динамически заполнены строки с данными студентов -->
+            </tbody>
+        </table>
+        <!-- Кнопка "Завершить" размещена под таблицей для удобства отправки данных -->
+        <button type="button" class="button" id="finishBtn">Завершить</button>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/teacher_attendance.js') }}"></script>
+</body>
+</html>

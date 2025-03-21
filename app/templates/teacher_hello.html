@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <title>Преподаватель | Приветствие</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles_teacher.css') }}">
+</head>
+<body data-first-start="{{ first_start }}" data-user-id="{{ user_id }}" data-user-type="teacher">
+<!-- Верхнее меню -->
+<nav class="navbar">
+    <div class="nav-left">
+        <a href="{{ url_for('teacher.dashboard') }}" class="nav-link">Проверить посещаемость</a>
+        <a href="{{ url_for('teacher.take_attendance') }}" class="nav-link">Записать посещаемость</a>
+    </div>
+    <div class="nav-right">
+        <a href="{{ url_for('auth.logout') }}" class="nav-link logout">Выйти</a>
+    </div>
+</nav>
+
+<div class="welcome-container">
+    <div class="welcome-card">
+        <h1 class="welcome-title">Добро пожаловать, {{ current_user.fio }}!</h1>
+        <p class="welcome-text">Выберите действие из меню выше, чтобы начать работу.</p>
+    </div>
+</div>
+
+<!-- Модальное окно смены пароля -->
+<div id="passwordModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <h2>Пожалуйста, введите новый, более надёжный пароль</h2>
+
+        <label for="newPassword">Новый пароль:</label>
+        <div class="password-container">
+            <input type="password" id="newPassword">
+            <button type="button" class="toggle-password">👁</button>
+        </div>
+
+        <label for="confirmPassword">Подтвердите пароль:</label>
+        <div class="password-container">
+            <input type="password" id="confirmPassword">
+            <button type="button" class="toggle-password">👁</button>
+        </div>
+
+        <button id="savePasswordBtn" class="button">Сохранить пароль и продолжить</button>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='js/first_start.js') }}"></script>
+</body>
+</html>

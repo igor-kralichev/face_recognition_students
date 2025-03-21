@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="icon" href="/static/favicon-96x96.ico" type="image/x-icon">
+    <title>Учитель | Проверка посещаемости</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles_teacher.css') }}">
+</head>
+<body>
+<!-- Верхнее меню -->
+<nav class="navbar">
+    <div class="nav-left">
+        <a href="{{ url_for('teacher.dashboard') }}" class="nav-link">Проверить посещаемость</a>
+        <a href="{{ url_for('teacher.take_attendance') }}" class="nav-link">Записать посещаемость</a>
+    </div>
+    <div class="nav-right">
+        <a href="{{ url_for('auth.logout') }}" class="nav-link logout">Выйти</a>
+    </div>
+</nav>
+
+<div class="container">
+    <h2>Посещаемость студентов</h2>
+
+    <!-- Контейнер для фильтров и кнопки -->
+    <div class="filter-container">
+        <div class="filters">
+            <div class="filter-item">
+                <label for="lessonFilter">Предмет:</label>
+                <select id="lessonFilter">
+                    <option value="">Все</option>
+                    <!-- Опции фильтра -->
+                </select>
+            </div>
+            <div class="filter-item">
+                <label for="groupFilter">Группа:</label>
+                <select id="groupFilter">
+                    <option value="">Все</option>
+                    <!-- Опции фильтра -->
+                </select>
+            </div>
+            <div class="filter-item">
+                <label for="dateFrom">С даты:</label>
+                <input type="date" id="dateFrom">
+            </div>
+            <div class="filter-item">
+                <label for="dateTo">По дату:</label>
+                <input type="date" id="dateTo">
+            </div>
+        </div>
+        <button class="button export-button" id="exportButton">Выгрузить в Excel</button>
+    </div>
+
+    <div id="attendanceTables"></div>
+</div>
+
+<script src="{{ url_for('static', filename='js/teacher_dashboard.js') }}"></script>
+</body>
+</html>

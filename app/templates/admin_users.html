@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="icon" href="/static/favicon-96x96.ico" type="image/x-icon">
+    <title>Админ | Пользователи</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles_admin.css') }}">
+</head>
+
+<div id="passwordModal" class="modal">
+    <div class="modal-content">
+        <span class="close">×</span>
+        <h2>Смена пароля</h2>
+        <label for="newPassword">Новый пароль:</label>
+        <div class="password-container">
+            <input type="password" id="newPassword">
+            <button type="button" class="toggle-password">👁</button>
+        </div>
+        <label for="confirmPassword">Подтвердите пароль:</label>
+        <div class="password-container">
+            <input type="password" id="confirmPassword">
+            <button type="button" class="toggle-password">👁</button>
+        </div>
+        <button id="savePasswordBtn" class="button">Сохранить</button>
+    </div>
+</div>
+
+<body>
+<nav class="navbar">
+    <div class="nav-left">
+        <a href="{{ url_for('admin.dashboard') }}" class="nav-link">Проверить посещаемость</a>
+        <a href="{{ url_for('admin.users_page') }}" class="nav-link">Пользователи</a>
+        <a href="{{ url_for('admin.teachers_page') }}" class="nav-link">Преподаватели</a>
+        <a href="{{ url_for('admin.students_page') }}" class="nav-link">Студенты</a>
+    </div>
+    <div class="nav-right">
+        <a href="{{ url_for('auth.logout') }}" class="nav-link logout">Выйти</a>
+    </div>
+</nav>
+
+<div class="container">
+    <h2>Управление пользователями</h2>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div id="userData" data-current-user-id="{{ current_user_id }}"></div>
+
+    <div class="mode-switcher">
+        <button id="showUsers" class="button">Пользователи</button>
+        <button id="showRegister" class="button">Регистрация пользователей</button>
+    </div>
+
+    <!-- Список пользователей -->
+    <div id="usersList" style="display: none;">
+        <h3>Список пользователей</h3>
+        <div>
+            <input type="text" id="searchFio" style="display: none;" placeholder="Поиск по ФИО">
+        </div>
+        <table id="usersTableDisplay">
+            <thead>
+                <tr>
+                    <th data-column="fio">
+                        ФИО
+                        <span class="sort-indicator asc">▲</span>
+                        <span class="sort-indicator desc">▼</span>
+                    </th>
+                    <th>Логин</th>
+                    <th>E-mail</th>
+                    <th>День рождения</th>
+                    <th data-column="role">
+                        Роль
+                        <span class="sort-indicator asc">▲</span>
+                        <span class="sort-indicator desc">▼</span>
+                    </th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <!-- Форма регистрации -->
+    <div id="registerFormContainer">
+        <form method="POST" action="" id="registerForm" novalidate>
+            <div class="form-group">
+                <label for="rowCount">Количество строк для добавления:</label>
+                <input type="number" id="rowCount" min="1" value="1" style="width: 60px;">
+                <button type="button" class="button" id="addRows">Добавить строки</button>
+                <button type="button" class="button login-pass-button" id="fillLoginsPasswords">Заполнить логины и пароли</button>
+            </div>
+            <table id="usersTableRegister">
+                <thead>
+                    <tr>
+                        <th>ФИО</th>
+                        <th>E-mail</th>
+                        <th>День рождения</th>
+                        <th>Логин</th>
+                        <th>Пароль</th>
+                        <th>Роль</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <button type="submit" class="button" id="finishBtn">Зарегистрировать пользователей и получить Excel файл для печати</button>
+        </form>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='js/admin_users.js') }}"></script>
+</body>
+</html>

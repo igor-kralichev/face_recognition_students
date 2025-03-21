@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="icon" href="/static/favicon-96x96.ico" type="image/x-icon">
+    <title>Админ | Студенты</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles_admin.css') }}">
+</head>
+<body>
+<!-- Верхнее меню -->
+<nav class="navbar">
+    <div class="nav-left">
+        <a href="{{ url_for('admin.dashboard') }}" class="nav-link">Проверить посещаемость</a>
+        <a href="{{ url_for('admin.users_page') }}" class="nav-link">Пользователи</a>
+        <a href="{{ url_for('admin.teachers_page') }}" class="nav-link">Преподаватели</a>
+        <a href="{{ url_for('admin.students_page') }}" class="nav-link">Студенты</a>
+    </div>
+    <div class="nav-right">
+        <a href="{{ url_for('auth.logout') }}" class="nav-link logout">Выйти</a>
+    </div>
+</nav>
+
+<!-- Модальное окно для отображения прогресса загрузки -->
+<div id="loadingModal" class="modal">
+  <div class="modal-content">
+    <p id="loadingText"></p>
+  </div>
+</div>
+
+<div class="container">
+    <h2>Управление студентами</h2>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Кнопки переключения режимов -->
+    <div class="mode-switcher">
+        <button id="showStudents" class="button">Просмотр студентов</button>
+        <button id="showCreateStudents" class="button">Добавление студентов</button>
+        <button id="exportExcelStudents" class="button export-button-no-attendance" style="display: none;">Выгрузить в Excel</button>
+    </div>
+
+
+    <!-- Блок для просмотра студентов -->
+    <div id="studentsList" style="display: none;">
+        <div class="filter-group">
+            <label for="groupFilter">Фильтр по группе:</label>
+            <select id="groupFilter">
+                <option value="">Все группы</option>
+                <!-- Динамически загружаемые группы -->
+            </select>
+        </div>
+
+        <h3>Список студентов</h3>
+        <div>
+            <input type="text" id="searchFio" class="searchFio" style="display: none;" placeholder="Поиск по ФИО">
+        </div>
+        <table id="studentsTable">
+            <thead>
+            <tr>
+                <th>Студенческий билет</th>
+                <th data-column="fio">
+                    ФИО
+                    <span class="sort-indicator asc">▲</span>
+                    <span class="sort-indicator desc">▼</span>
+                </th>
+                <th data-column="group">
+                    Группа
+                    <span class="sort-indicator asc">▲</span>
+                    <span class="sort-indicator desc">▼</span>
+                </th>
+                <th>Почта</th>
+                <th>Дата рождения</th>
+                <th>Действие</th>
+            </tr>
+            </thead>
+            <tbody>
+            <!-- Динамически загружаемые данные -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Блок для добавления студентов -->
+    <div id="createStudentsContainer" style="display: none;">
+        <div id="groupSelection">
+            <h3>Выберите группу</h3>
+            <input list="groups" id="groupInput" placeholder="Введите или выберите группу">
+            <datalist id="groups">
+                <!-- Динамически загружаемые группы -->
+            </datalist>
+            <button type="button" id="nextButton" class="button">Далее</button>
+        </div>
+        <div id="studentForm" style="display: none;">
+            <form id="createStudentsForm" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="rowCount">Количество строк для добавления:</label>
+                    <input type="number" id="rowCount" min="1" value="1" style="width: 60px;">
+                    <button type="button" id="addRows" class="button">Добавить строки</button>
+                </div>
+                <table id="createTable">
+                    <thead>
+                    <tr>
+                        <th>Студенческий билет</th>
+                        <th>Форма обучения</th>
+                        <th>ФИО</th>
+                        <th>Почта</th>
+                        <th>Дата рождения</th>
+                        <th>Фото (PNG/JPEG)</th>
+                        <th>Действия</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <!-- Динамически добавляемые строки -->
+                    </tbody>
+                </table>
+                <button type="submit" class="button" id="finishBtn">Загрузить в базу данных</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/admin_students.js') }}"></script>
+</body>
+</html>

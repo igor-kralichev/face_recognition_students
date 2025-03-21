@@ -1,0 +1,95 @@
+/* ===== Основные стили страницы ===== */
+body {
+    font-family: Arial, sans-serif;
+    background: linear-gradient(to bottom, #e6f4ea, #c3e6cb); /* Зелёный градиент */
+    color: #333;
+    padding: 20px;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* ===== Контейнер для формы логина ===== */
+.login-container {
+    background-color: #fff;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+}
+
+/* ===== Заголовки ===== */
+h2 {
+    color: #17a2b8; /* Бирюзовый цвет */
+    margin-bottom: 20px;
+}
+
+/* ===== Стили для формы ===== */
+.form-group {
+    margin-bottom: 15px;
+    text-align: left; /* Выравнивание меток и полей слева */
+}
+
+.form-group label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #333;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-sizing: border-box;
+}
+
+/* ===== Общие стили для меток и полей ввода ===== */
+label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+input[type="text"],
+input[type="password"] {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+/* ===== Стили для кнопок ===== */
+button {
+    background-color: #17a2b8; /* Бирюзовый */
+    color: #fff;
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #138496; /* Темнее при наведении */
+}
+
+/* ===== Сообщения (ошибка/успех) ===== */
+.flash-error {
+    color: red;
+    margin-bottom: 10px;
+    padding: 10px;
+    background-color: #ffebee;
+    border-radius: 3px;
+}
+
+.flash-success {
+    color: green;
+    margin-bottom: 10px;
+    padding: 10px;
+    background-color: #e8f5e9;
+    border-radius: 3px;
+}
