@@ -12,8 +12,6 @@ from datetime import datetime, timedelta
 import cv2
 import face_recognition
 import numpy as np
-from PIL import Image
-from pathlib import Path
 from flask import Blueprint, render_template, request, jsonify, current_app
 from flask_login import login_required, current_user
 from werkzeug.security import generate_password_hash
