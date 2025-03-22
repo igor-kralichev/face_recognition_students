@@ -258,7 +258,8 @@ def take_attendance():
     """
     teacher_subjects = Teacher.query.filter_by(id_user=current_user.id).all()
     subjects = [{'id': t.lesson.id, 'name': t.lesson.lesson} for t in teacher_subjects]
-    groups = Group.query.all()
+    # Фильтруем группы, у которых есть хотя бы один студент
+    groups = Group.query.join(Student, Group.id == Student.group_id).distinct().all()
     groups_data = [{'id': g.id, 'groupname': g.groupname} for g in groups]
 
     return render_template(

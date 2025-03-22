@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let selectedSubjectId = null;
     let faceLocations = []; // Для хранения координат лиц
     let faceNames = []; // Для хранения имен распознанных лиц
+    let currentFacingMode = 'user'; // По умолчанию фронтальная камера
 
     // ============================================
     // Получение CSRF-токена
@@ -23,62 +24,97 @@ document.addEventListener('DOMContentLoaded', function () {
     const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
 
     // ============================================
+    // Функция для определения мобильного устройства
+    // ============================================
+    function isMobileDevice() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    }
+
+    // ============================================
     // Обработчик кнопки "Далее"
     // ============================================
     document.getElementById('nextBtn').addEventListener('click', async function () {
-    let subjectSelect = document.getElementById('subjectSelect');
-    let groupInputValue = groupInput.value.trim();
-    let subject = subjectSelect.value;
+        let subjectSelect = document.getElementById('subjectSelect');
+        let groupInputValue = groupInput.value.trim();
+        let subject = subjectSelect.value;
 
-    if (!subject || !groupInputValue) {
-        alert('Пожалуйста, выберите предмет и группу.');
-        return;
-    }
-
-    if (!validGroups.includes(groupInputValue.toLowerCase())) {
-        alert('Такой группы нет в базе, выберите другую.');
-        return;
-    }
-
-    selectedSubjectId = subject;
-    try {
-        const response = await fetch(`/auth/teacher/api/load_faces?group=${encodeURIComponent(groupInputValue)}`);
-        const data = await response.json();
-        if (!data.success) {
-            alert('Ошибка загрузки данных для группы.');
+        if (!subject || !groupInputValue) {
+            alert('Пожалуйста, выберите предмет и группу.');
             return;
         }
-    } catch (error) {
-        console.error('Ошибка:', error);
-        alert('Ошибка связи с сервером.');
-        return;
-    }
 
-    document.getElementById('selectedSubject').textContent = subjectSelect.options[subjectSelect.selectedIndex].text;
-    document.getElementById('selectedGroup').textContent = groupInputValue;
-    document.getElementById('attendanceSelection').style.display = 'none';
-    document.getElementById('attendanceRecording').style.display = 'block';
+        if (!validGroups.includes(groupInputValue.toLowerCase())) {
+            alert('Такой группы нет в базе, выберите другую.');
+            return;
+        }
 
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        statusDiv.innerText = 'Ваш браузер не поддерживает доступ к камере.';
-        return;
-    }
+        selectedSubjectId = subject;
+        try {
+            const response = await fetch(`/auth/teacher/api/load_faces?group=${encodeURIComponent(groupInputValue)}`);
+            const data = await response.json();
+            if (!data.success) {
+                alert('Ошибка загрузки данных для группы.');
+                return;
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            alert('Ошибка связи с сервером.');
+            return;
+        }
 
-    navigator.mediaDevices.getUserMedia({video: true})
-        .then(function (stream) {
+        document.getElementById('selectedSubject').textContent = subjectSelect.options[subjectSelect.selectedIndex].text;
+        document.getElementById('selectedGroup').textContent = groupInputValue;
+        document.getElementById('attendanceSelection').style.display = 'none';
+        document.getElementById('attendanceRecording').style.display = 'block';
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            statusDiv.innerText = 'Ваш браузер не поддерживает доступ к камере.';
+            return;
+        }
+
+        navigator.mediaDevices.getUserMedia({video: true})
+            .then(function (stream) {
+                video.srcObject = stream;
+                video.play();
+
+                // Показываем кнопку смены камеры только на мобильных устройствах
+                if (isMobileDevice()) {
+                    document.getElementById('switchCameraBtn').style.display = 'inline-block';
+                }
+            })
+            .catch(function (err) {
+                console.log("Ошибка доступа к камере: " + err.name + " - " + err.message);
+                statusDiv.innerText = 'Ошибка: ' + err.message;
+                if (err.name === 'NotAllowedError') {
+                    statusDiv.innerText += ' Разрешите доступ к камере в настройках.';
+                } else if (err.name === 'NotFoundError') {
+                    statusDiv.innerText += ' Камера не найдена.';
+                }
+            });
+    });
+
+    // ============================================
+    // Обработчик кнопки "Сменить камеру"
+    // ============================================
+    document.getElementById('switchCameraBtn').addEventListener('click', async function () {
+        if (video.srcObject) {
+            video.srcObject.getTracks().forEach(track => track.stop());
+        }
+
+        // Переключаем режим камеры
+        currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: {facingMode: currentFacingMode}
+            });
             video.srcObject = stream;
             video.play();
-        })
-        .catch(function (err) {
-            console.log("Ошибка доступа к камере: " + err.name + " - " + err.message);
-            statusDiv.innerText = 'Ошибка: ' + err.message;
-            if (err.name === 'NotAllowedError') {
-                statusDiv.innerText += ' Разрешите доступ к камере в настройках.';
-            } else if (err.name === 'NotFoundError') {
-                statusDiv.innerText += ' Камера не найдена.';
-            }
-        });
-});
+        } catch (error) {
+            console.error('Ошибка при смене камеры:', error);
+            statusDiv.innerText = 'Ошибка при смене камеры: ' + error.message;
+        }
+    });
 
     // ============================================
     // Обработчик кнопки "Старт"

@@ -561,4 +561,89 @@ body.modal-open::before {
         width: 100%; /* Кнопка на всю ширину */
         margin-left: 0;
     }
+     /* Навигационное меню */
+    .navbar {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 10px;
+    }
+    .nav-left, .nav-right {
+        width: 100%;
+        text-align: center;
+    }
+    .nav-left a, .nav-right a {
+        display: block;
+        margin: 5px 0;
+    }
+
+    /* Контейнеры */
+    .welcome-card {
+        max-width: 90%;
+        padding: 20px;
+    }
+    .welcome-title {
+        font-size: 1.8em;
+    }
+    .welcome-text {
+        font-size: 1em;
+    }
+
+    /* Таблицы */
+    table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+
+    /* Формы и кнопки */
+    .form-group {
+        margin-bottom: 20px;
+    }
+    .form-group input, .form-group select {
+        font-size: 16px;
+        padding: 10px;
+    }
+    .button {
+        font-size: 16px;
+        padding: 12px 24px;
+        width: 100%;
+    }
+
+    /* Модальные окна */
+    .modal-content {
+        width: 90%;
+        margin: 10% auto;
+        padding: 15px;
+    }
+    .password-container input {
+        font-size: 16px;
+    }
+
+    /* Видео и скриншоты */
+    #videoAndScreenshotContainer {
+        flex-direction: column;
+        gap: 10px;
+    }
+    #videoContainer, #screenshotContainer {
+        max-width: 100%;
+    }
+    #video, #screenshotCanvas {
+        width: 100%;
+        height: auto;
+    }
+    #controls {
+        flex-direction: column;
+        gap: 10px;
+    }
+    #controls .button {
+        width: 100%;
+    }
+
+    /* Читаемость текста */
+    body {
+        font-size: 16px;
+    }
+    h1, h2, h3 {
+        font-size: 24px;
+    }
 }

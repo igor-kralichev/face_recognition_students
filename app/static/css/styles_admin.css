@@ -667,28 +667,94 @@ body.modal-open::before {
 
 /* ===== Адаптивность для маленьких экранов ===== */
 @media (max-width: 768px) {
-    .filter-container {
-        flex-direction: column; /* Элементы в столбец */
+    /* Навигационное меню */
+    .navbar {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 10px;
+    }
+    .nav-left, .nav-right {
+        width: 100%;
+        text-align: center;
+    }
+    .nav-left a, .nav-right a {
+        display: block;
+        margin: 5px 0;
+    }
+
+    /* Контейнеры */
+    .welcome-card {
+        max-width: 90%;
+        padding: 20px;
+    }
+    .welcome-title {
+        font-size: 1.8em;
+    }
+    .welcome-text {
+        font-size: 1em;
+    }
+
+    /* Таблицы */
+    table, #usersTable, #studentsTable, #teacherSubjectsTable, #usersTableDisplay, #createTable {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+
+    /* Формы и кнопки */
+    .form-group {
+        margin-bottom: 20px;
+    }
+    .form-group input, .form-group select {
+        font-size: 16px;
+        padding: 10px;
+    }
+    .button {
+        font-size: 16px;
+        padding: 12px 24px;
+        width: 100%;
+    }
+    #rowCount {
+        width: 100%;
+    }
+    .filter-container, .mode-switcher, .button-group {
+        flex-direction: column;
         align-items: stretch;
+        gap: 10px;
     }
-
     .filters {
-        width: 100%; /* Фильтры на всю ширину */
-        flex-direction: column; /* Фильтры в столбец */
-        gap: 15px; /* Расстояние между фильтрами */
+        width: 100%;
+        flex-direction: column;
+        gap: 15px;
     }
-
     .filter-item {
-        width: 100%; /* Каждый фильтр на всю ширину */
+        width: 100%;
+    }
+    .filter-item select, .filter-item input[type="date"] {
+        width: 100%;
+        font-size: 16px;
+    }
+    .export-button, .mode-switcher button, .button-group .button {
+        margin-top: 10px;
+        width: 100%;
+        font-size: 16px;
     }
 
-    .filter-item select,
-    .filter-item input[type="date"] {
-        width: 100%; /* Элементы на всю ширину */
+    /* Модальные окна */
+    .modal-content {
+        width: 90%;
+        margin: 10% auto;
+        padding: 15px;
+    }
+    .password-container input {
+        font-size: 16px;
     }
 
-    .export-button {
-        margin-top: 15px; /* Отступ сверху */
-        width: 100%; /* Кнопка на всю ширину */
+    /* Читаемость текста */
+    body {
+        font-size: 16px;
+    }
+    h1, h2, h3 {
+        font-size: 24px;
     }
 }

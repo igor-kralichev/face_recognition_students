@@ -334,16 +334,28 @@ document.addEventListener('DOMContentLoaded', () => {
     // ============================================
     elements.nextButton.addEventListener('click', () => {
         const groupName = elements.groupInput.value.trim();
+
+        // Проверка на пустое значение
         if (!groupName) {
             alert('Пожалуйста, выберите или введите группу');
             return;
         }
-        const existingGroup = groupsList.find(group => group.groupname === groupName);
+
+        // Поиск группы с нечувствительностью к регистру
+        const existingGroup = groupsList.find(group => group.groupname.toLowerCase() === groupName.toLowerCase());
+
         if (existingGroup) {
             selectedGroupId = existingGroup.id;
             showStudentForm();
         } else {
             if (confirm(`Группа "${groupName}" не найдена. Создать новую группу?`)) {
+                // Валидация длины
+                if (groupName.length > 10) {
+                    alert('Название группы не должно превышать 10 символов');
+                    return;
+                }
+
+
                 fetch('/auth/admin/api/add_group', {
                     method: 'POST',
                     headers: {
@@ -357,9 +369,19 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (data.success) {
                             selectedGroupId = data.id;
                             groupsList.push({id: data.id, groupname: groupName});
+                            // Обновление datalist
+                            const option = document.createElement('option');
+                            option.value = groupName;
+                            elements.groupsDatalist.appendChild(option);
                             showStudentForm();
+                        } else {
+                            alert(data.message || 'Не удалось создать группу');
                         }
-                    });
+                    })
+                    .catch(error => {
+                        console.error('Ошибка при создании группы:', error);
+                        alert('Не удалось создать группу. Попробуйте позже.');
+                    })
             }
         }
     });
