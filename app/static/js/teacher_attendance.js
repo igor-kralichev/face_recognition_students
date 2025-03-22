@@ -96,25 +96,47 @@ document.addEventListener('DOMContentLoaded', function () {
     // ============================================
     // Обработчик кнопки "Сменить камеру"
     // ============================================
-    document.getElementById('switchCameraBtn').addEventListener('click', async function () {
-        if (video.srcObject) {
-            video.srcObject.getTracks().forEach(track => track.stop());
-        }
+    if (isMobileDevice()) {
+    const switchCameraBtn = document.getElementById('switchCameraBtn');
+    if (switchCameraBtn) {
+        switchCameraBtn.addEventListener('click', async function () {
+            if (video.srcObject) {
+                video.srcObject.getTracks().forEach(track => track.stop());
+            }
 
-        // Переключаем режим камеры
-        currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+            // Переключаем режим камеры
+            currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
 
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: {facingMode: currentFacingMode}
-            });
-            video.srcObject = stream;
-            video.play();
-        } catch (error) {
-            console.error('Ошибка при смене камеры:', error);
-            statusDiv.innerText = 'Ошибка при смене камеры: ' + error.message;
-        }
-    });
+            try {
+                // Используем constraint с ideal, чтобы задать предпочтительный режим камеры
+                const constraints = {
+                    video: {
+                        facingMode: { ideal: currentFacingMode }
+                    }
+                };
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = stream;
+
+                // После загрузки метаданных устанавливаем размеры canvas в соответствии с видео
+                video.addEventListener('loadedmetadata', function() {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    // Если нужно, можно обновить и размеры для скриншота
+                    screenshotCanvas.width = video.videoWidth;
+                    screenshotCanvas.height = video.videoHeight;
+                });
+
+                video.play();
+            } catch (error) {
+                console.error('Ошибка при смене камеры:', error);
+                statusDiv.innerText = 'Ошибка при смене камеры: ' + error.message;
+            }
+        });
+    } else {
+        console.warn('Элемент с id "switchCameraBtn" не найден.');
+    }
+}
+
 
     // ============================================
     // Обработчик кнопки "Старт"
