@@ -13,7 +13,7 @@ import cv2
 import face_recognition
 import numpy as np
 from flask import Blueprint, render_template, request, jsonify, current_app
-from flask_login import login_required, current_user
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash
 
 from app import db
@@ -35,21 +35,21 @@ current_known_ids = []
 # Приветствие и общие маршруты
 # ============================================
 
-# Отображает страницу приветствия для преподавателя
 @teacher_bp.route('/hello')
-@login_required
+@jwt_required()
 @role_required('teacher')
 def hello():
     """Отображает страницу приветствия для преподавателя."""
-    return render_template('teacher_hello.html', first_start=current_user.first_start, user_id=current_user.id)
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    return render_template('teacher_hello.html', first_start=user.first_start, user_id=user.id, current_user=user)
 
 # ============================================
 # Управление посещаемостью
 # ============================================
 
-# Отображает дашборд с данными о посещаемости
 @teacher_bp.route('/dashboard', methods=['GET'])
-@login_required
+@jwt_required()
 @role_required('teacher')
 def dashboard():
     """
@@ -57,13 +57,14 @@ def dashboard():
     Поддерживает фильтрацию по предмету, группе и датам.
     Возвращает HTML или JSON в зависимости от параметра 'format'.
     """
-    teacher_subjects = Teacher.query.filter_by(id_user=current_user.id).all()
+    user_id = get_jwt_identity()
+    teacher_subjects = Teacher.query.filter_by(id_user=user_id).all()
     lessons = [{'id': t.lesson.id, 'lesson': t.lesson.lesson} for t in teacher_subjects]
 
     groups = (Group.query
               .join(Attendance, Attendance.id_group == Group.id)
               .join(Teacher, Attendance.id_teacher == Teacher.id)
-              .filter(Teacher.id_user == current_user.id)
+              .filter(Teacher.id_user == user_id)
               .distinct()
               .all())
     groups_data = [{'id': g.id, 'groupname': g.groupname} for g in groups]
@@ -82,7 +83,7 @@ def dashboard():
             Student.id.label('student_id'),
             Student.fio.label('student_fio'),
             Attendance.timestamp
-        ).select_from(Teacher).filter(Teacher.id_user == current_user.id
+        ).select_from(Teacher).filter(Teacher.id_user == user_id
                                       ).join(User, Teacher.id_user == User.id
                                              ).join(Lesson, Teacher.id_lesson == Lesson.id
                                                     ).join(Attendance, Attendance.id_teacher == Teacher.id
@@ -155,9 +156,8 @@ def dashboard():
 
     return render_template('teacher_dashboard.html', lessons=lessons, groups=groups_data)
 
-# Возвращает данные о посещаемости для группы и даты
 @teacher_bp.route('/api/attendance', methods=['GET'])
-@login_required
+@jwt_required()
 @role_required('teacher')
 def get_attendance():
     """
@@ -170,7 +170,8 @@ def get_attendance():
     students = Student.query.filter_by(id_group=group_id).all()
     selected_date_obj = datetime.strptime(selected_date, "%d.%m.%Y").date()
 
-    teacher = Teacher.query.filter_by(id_user=current_user.id).first()
+    user_id = get_jwt_identity()
+    teacher = Teacher.query.filter_by(id_user=user_id).first()
     attendance_records = Attendance.query.filter(
         Attendance.id_group == group_id,
         db.func.date(Attendance.timestamp) == selected_date_obj,
@@ -193,52 +194,52 @@ def get_attendance():
 # Дополнительные API для фильтров
 # ============================================
 
-# Возвращает группы для указанного предмета
 @teacher_bp.route('/api/get_groups_by_lesson', methods=['GET'])
-@login_required
+@jwt_required()
 @role_required('teacher')
 def get_groups_by_lesson():
     """Возвращает список групп для указанного предмета."""
     lesson_id = request.args.get('lesson_id', type=int)
     if lesson_id:
+        user_id = get_jwt_identity()
         groups = Group.query.join(Student).join(Attendance).join(Teacher).filter(
             Teacher.id_lesson == lesson_id,
-            Teacher.id_user == current_user.id
+            Teacher.id_user == user_id
         ).distinct().all()
         return jsonify([{'id': group.id, 'name': group.groupname} for group in groups])
     return jsonify([])
 
-# Возвращает предметы текущего преподавателя
 @teacher_bp.route('/api/get_lessons_by_teacher', methods=['GET'])
-@login_required
+@jwt_required()
 @role_required('teacher')
 def get_lessons_by_teacher():
     """Возвращает список предметов для текущего преподавателя."""
-    lessons = Lesson.query.join(Teacher).filter(Teacher.id_user == current_user.id).all()
+    user_id = get_jwt_identity()
+    lessons = Lesson.query.join(Teacher).filter(Teacher.id_user == user_id).all()
     return jsonify([{'id': lesson.id, 'name': lesson.lesson} for lesson in lessons])
 
-# Возвращает группы текущего преподавателя
 @teacher_bp.route('/api/get_groups_by_teacher', methods=['GET'])
-@login_required
+@jwt_required()
 @role_required('teacher')
 def get_groups_by_teacher():
     """Возвращает список групп для текущего преподавателя."""
+    user_id = get_jwt_identity()
     groups = Group.query.join(Attendance).join(Teacher).filter(
-        Teacher.id_user == current_user.id
+        Teacher.id_user == user_id
     ).distinct().all()
     return jsonify([{'id': group.id, 'name': group.groupname} for group in groups])
 
-# Возвращает предметы для указанной группы
 @teacher_bp.route('/api/get_lessons_by_group', methods=['GET'])
-@login_required
+@jwt_required()
 @role_required('teacher')
 def get_lessons_by_group():
     """Возвращает список предметов для указанной группы."""
     group_id = request.args.get('group_id', type=int)
     if group_id:
+        user_id = get_jwt_identity()
         lessons = Lesson.query.join(Teacher).join(Attendance).filter(
             Attendance.id_group == group_id,
-            Teacher.id_user == current_user.id
+            Teacher.id_user == user_id
         ).distinct().all()
         return jsonify([{'id': lesson.id, 'name': lesson.lesson} for lesson in lessons])
     return jsonify([])
@@ -247,30 +248,29 @@ def get_lessons_by_group():
 # Распознавание лиц и отметка посещаемости
 # ============================================
 
-# Отображает страницу для отметки посещаемости
 @teacher_bp.route('/take_attendance')
-@login_required
+@jwt_required()
 @role_required('teacher')
 def take_attendance():
     """
     Отображает страницу для отметки посещаемости.
     Позволяет выбрать предмет и группу для распознавания лиц.
     """
-    teacher_subjects = Teacher.query.filter_by(id_user=current_user.id).all()
+    user_id = get_jwt_identity()
+    teacher_subjects = Teacher.query.filter_by(id_user=user_id).all()
     subjects = [{'id': t.lesson.id, 'name': t.lesson.lesson} for t in teacher_subjects]
-    # Фильтруем группы, у которых есть хотя бы один студент
     groups = Group.query.join(Student, Group.id == Student.id_group).distinct().all()
     groups_data = [{'id': g.id, 'groupname': g.groupname} for g in groups]
 
+    user = User.query.get(user_id)
     return render_template(
         'teacher_attendance.html',
         subjects=subjects,
         groups=groups_data,
-        first_start=current_user.first_start,
-        user_id=current_user.id
+        first_start=user.first_start,
+        user_id=user_id
     )
 
-# Отправляет email студенту об отсутствии
 def send_absence_email(student, subject_name, teacher_fio):
     """
     Отправляет email студенту об отсутствии на занятии.
@@ -317,9 +317,8 @@ def send_absence_email(student, subject_name, teacher_fio):
     except Exception as e:
         print(f"Ошибка отправки письма студенту {student.fio}: {e}")
 
-# Сохраняет данные о посещаемости в базе данных
 @teacher_bp.route('/api/submit_attendance', methods=['POST'])
-@login_required
+@jwt_required()
 @role_required('teacher')
 def submit_attendance():
     """
@@ -332,15 +331,15 @@ def submit_attendance():
 
     subject_id = data.get("subject_id")
     group_id = data.get("group_id")
-    teacher_record = Teacher.query.filter_by(id_user=current_user.id, id_lesson=subject_id).first()
+    user_id = get_jwt_identity()
+    teacher_record = Teacher.query.filter_by(id_user=user_id, id_lesson=subject_id).first()
     if not teacher_record:
         return jsonify({"success": False, "message": "Запись преподавателя не найдена"}), 400
 
-    # Получите предмет и ФИО преподавателя для письма
     subject = Lesson.query.get(subject_id)
     if not subject:
         return jsonify({"success": False, "message": "Предмет не найден"}), 400
-    teacher = User.query.get(current_user.id)
+    teacher = User.query.get(user_id)
     teacher_fio = teacher.fio if teacher else "Преподаватель"
 
     moscow_tz = pytz.timezone("Europe/Moscow")
@@ -348,11 +347,9 @@ def submit_attendance():
     students_data = data.get("students", [])
     attended_ids = []
 
-    # Получите всех студентов в группе
     all_students = Student.query.filter_by(id_group=group_id).all()
     all_student_ids = {student.id for student in all_students}
 
-    # Сохраните данные о присутствующих
     for student in students_data:
         if student.get("attended"):
             student_id = int(student.get("id"))
@@ -379,11 +376,10 @@ def submit_attendance():
     try:
         db.session.commit()
 
-        # Найдите отсутствующих студентов
         absent_student_ids = all_student_ids - set(attended_ids)
         for student_id in absent_student_ids:
             student = Student.query.get(student_id)
-            if student and student.mail:  # Убедитесь, что у студента есть email
+            if student and student.mail:
                 send_absence_email(student, subject.lesson, teacher_fio)
 
         return jsonify({"success": True})
@@ -391,9 +387,8 @@ def submit_attendance():
         db.session.rollback()
         return jsonify({"success": False, "message": str(e)}), 400
 
-# Загружает кодировки лиц студентов для группы
 @teacher_bp.route('/api/load_faces', methods=['GET'])
-@login_required
+@jwt_required()
 @role_required('teacher')
 def load_faces():
     """
@@ -418,36 +413,8 @@ def load_faces():
     current_known_ids = known_ids
     return jsonify({'success': True, 'message': f'Загружено {len(known_ids)} лиц для группы {group_name}'})
 
-# Загружает лица из файловой системы для группы
-# def load_known_faces_for_group(group_name):
-#     """
-#     Загружает известные лица из файловой системы для группы.
-#     Используется как альтернативный способ загрузки лиц.
-#     """
-#     known_faces = []
-#     known_ids = []
-#     group_folder = Path(current_app.config['UPLOAD_FOLDER']) / group_name
-#     if not group_folder.exists():
-#         print(f"Папка для группы {group_name} не найдена!")
-#         return known_faces, known_ids
-#
-#     for file in group_folder.iterdir():
-#         if file.suffix.lower() in ['.jpg', '.jpeg', '.png']:
-#             try:
-#                 image = Image.open(file)
-#                 image_np = np.array(image)
-#                 encodings = face_recognition.face_encodings(image_np)
-#                 if encodings:
-#                     known_faces.append(encodings[0])
-#                     student_id = file.stem.split('_')[0]
-#                     known_ids.append(student_id)
-#             except Exception as e:
-#                 print(f"Ошибка при обработке файла {file}: {e}")
-#     return known_faces, known_ids
-
-# Распознает лица на изображении
 @teacher_bp.route('/api/recognize', methods=['POST'])
-@login_required
+@jwt_required()
 @role_required('teacher')
 def recognize():
     """
@@ -499,7 +466,6 @@ def recognize():
 # Управление пользователями
 # ============================================
 
-# Проверяет надёжность пароля
 def is_password_strong(password):
     """
     Проверяет, является ли пароль достаточно сильным.
@@ -512,9 +478,8 @@ def is_password_strong(password):
         re.search(r'[\W_]', password)
     )
 
-# Обновляет пароль пользователя
 @teacher_bp.route("/api/update_password/<int:user_id>", methods=["POST"])
-@login_required
+@jwt_required()
 def update_password(user_id):
     """
     Обновляет пароль пользователя по его ID.
@@ -532,16 +497,16 @@ def update_password(user_id):
     if not user:
         return jsonify({"success": False, "message": "Пользователь не найден"}), 404
 
-    if user.id == current_user.id and user.first_start:
+    current_user_id = get_jwt_identity()
+    if user.id == current_user_id and user.first_start:
         user.first_start = False
 
     user.password = generate_password_hash(new_password, method='pbkdf2:sha256', salt_length=8)
     db.session.commit()
     return jsonify({"success": True})
 
-# Возвращает список студентов с фильтрацией
 @teacher_bp.route('/api/students', methods=['GET'])
-@login_required
+@jwt_required()
 @role_required('teacher')
 def get_students():
     """

@@ -1,12 +1,59 @@
 document.addEventListener('DOMContentLoaded', function () {
-    // ============================================
-    // Получение ссылок на DOM-элементы
-    // ============================================
+    // Универсальная функция fetch с включением cookie и обработкой ошибок
+    async function fetchWithCookie(url, options = {}) {
+        const csrfToken = getCookie('csrf_access_token');
+
+        // Проверка CSRF-токена для запросов, изменяющих состояние
+        if (['POST', 'PUT', 'DELETE'].includes(options.method?.toUpperCase()) && !csrfToken) {
+            console.error('CSRF-токен не найден');
+            window.location.href = '/auth/login';
+            return;
+        }
+
+        // Настройка заголовков
+        const headers = {
+            ...(options.headers || {}),
+        };
+
+        // Добавляем X-CSRF-TOKEN, если он есть
+        if (csrfToken) {
+            headers['X-CSRF-TOKEN'] = csrfToken;
+        }
+
+        // Устанавливаем Content-Type только если не указан в options и тело — строка
+        if (!headers['Content-Type'] && options.body && typeof options.body === 'string') {
+            headers['Content-Type'] = 'application/json';
+        }
+
+        const response = await fetch(url, {
+            ...options,
+            credentials: 'include', // Отправляем cookie
+            headers: headers
+        });
+
+        // Обработка ошибок 401 и 403
+        if (response.status === 401 || response.status === 403) {
+            window.location.href = '/auth/login';
+            throw new Error('Unauthorized или Forbidden');
+        }
+
+        return response;
+    }
+
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return null;
+    }
+
+
+    // Получение DOM-элементов
     let validGroups = Array.from(document.querySelectorAll('#groupOptions option')).map(opt => opt.value.toLowerCase());
     let groupInput = document.getElementById('groupInput');
     let video = document.getElementById('video');
-    let canvas = document.getElementById('canvas'); // Для захвата кадров
-    let screenshotCanvas = document.getElementById('screenshotCanvas'); // Для отображения скриншота
+    let canvas = document.getElementById('canvas');
+    let screenshotCanvas = document.getElementById('screenshotCanvas');
     let statusDiv = document.getElementById('status');
     let ctx = canvas.getContext('2d');
     let screenshotCtx = screenshotCanvas.getContext('2d');
@@ -14,25 +61,17 @@ document.addEventListener('DOMContentLoaded', function () {
     let intervalId;
     let recognizedStudents = [];
     let selectedSubjectId = null;
-    let faceLocations = []; // Для хранения координат лиц
-    let faceNames = []; // Для хранения имен распознанных лиц
-    let currentFacingMode = 'user'; // По умолчанию фронтальная камера
+    let faceLocations = [];
+    let faceNames = [];
+    let currentFacingMode = 'user';
 
-    // ============================================
-    // Получение CSRF-токена
-    // ============================================
-    const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
 
-    // ============================================
-    // Функция для определения мобильного устройства
-    // ============================================
+    // Проверка на мобильное устройство
     function isMobileDevice() {
         return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     }
 
-    // ============================================
     // Обработчик кнопки "Далее"
-    // ============================================
     document.getElementById('nextBtn').addEventListener('click', async function () {
         let subjectSelect = document.getElementById('subjectSelect');
         let groupInputValue = groupInput.value.trim();
@@ -50,7 +89,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         selectedSubjectId = subject;
         try {
-            const response = await fetch(`/auth/teacher/api/load_faces?group=${encodeURIComponent(groupInputValue)}`);
+            const response = await fetchWithCookie(`/auth/teacher/api/load_faces?group=${encodeURIComponent(groupInputValue)}`);
             const data = await response.json();
             if (!data.success) {
                 alert('Ошибка загрузки данных для группы.');
@@ -76,8 +115,6 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(function (stream) {
                 video.srcObject = stream;
                 video.play();
-
-                // Показываем кнопку смены камеры только на мобильных устройствах
                 if (isMobileDevice()) {
                     document.getElementById('switchCameraBtn').style.display = 'inline-block';
                 }
@@ -93,65 +130,50 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     });
 
-    // ============================================
-    // Обработчик кнопки "Сменить камеру"
-    // ============================================
+    // Обработчик кнопки "Сменить камеру" (только для мобильных)
     if (isMobileDevice()) {
-    const switchCameraBtn = document.getElementById('switchCameraBtn');
-    if (switchCameraBtn) {
-        switchCameraBtn.addEventListener('click', async function () {
-            if (video.srcObject) {
-                video.srcObject.getTracks().forEach(track => track.stop());
-            }
+        const switchCameraBtn = document.getElementById('switchCameraBtn');
+        if (switchCameraBtn) {
+            switchCameraBtn.addEventListener('click', async function () {
+                if (video.srcObject) {
+                    video.srcObject.getTracks().forEach(track => track.stop());
+                }
 
-            // Переключаем режим камеры
-            currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+                currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
 
-            try {
-                // Используем constraint с ideal, чтобы задать предпочтительный режим камеры
-                const constraints = {
-                    video: {
-                        facingMode: { ideal: currentFacingMode }
-                    }
-                };
-                const stream = await navigator.mediaDevices.getUserMedia(constraints);
-                video.srcObject = stream;
+                try {
+                    const constraints = {video: {facingMode: {ideal: currentFacingMode}}};
+                    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    video.srcObject = stream;
 
-                // После загрузки метаданных устанавливаем размеры canvas в соответствии с видео
-                video.addEventListener('loadedmetadata', function() {
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
-                    // Если нужно, можно обновить и размеры для скриншота
-                    screenshotCanvas.width = video.videoWidth;
-                    screenshotCanvas.height = video.videoHeight;
-                });
+                    video.addEventListener('loadedmetadata', function () {
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        screenshotCanvas.width = video.videoWidth;
+                        screenshotCanvas.height = video.videoHeight;
+                    });
 
-                video.play();
-            } catch (error) {
-                console.error('Ошибка при смене камеры:', error);
-                statusDiv.innerText = 'Ошибка при смене камеры: ' + error.message;
-            }
-        });
-    } else {
-        console.warn('Элемент с id "switchCameraBtn" не найден.');
+                    video.play();
+                } catch (error) {
+                    console.error('Ошибка при смене камеры:', error);
+                    statusDiv.innerText = 'Ошибка при смене камеры: ' + error.message;
+                }
+            });
+        } else {
+            console.warn('Элемент с id "switchCameraBtn" не найден.');
+        }
     }
-}
 
-
-    // ============================================
     // Обработчик кнопки "Старт"
-    // ============================================
     document.getElementById('startBtn').addEventListener('click', function () {
         if (!capturing) {
             capturing = true;
             statusDiv.innerText = 'Захват лиц запущен.';
-            intervalId = setInterval(captureAndUpload, 2500); // Каждые 2.5 секунды
+            intervalId = setInterval(captureAndUpload, 2500);
         }
     });
 
-    // ============================================
     // Обработчик кнопки "Пауза"
-    // ============================================
     document.getElementById('pauseBtn').addEventListener('click', function () {
         if (capturing) {
             capturing = false;
@@ -165,9 +187,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // ============================================
     // Обработчик кнопки "Стоп"
-    // ============================================
     document.getElementById('stopBtn').addEventListener('click', function () {
         if (capturing) {
             capturing = false;
@@ -182,51 +202,43 @@ document.addEventListener('DOMContentLoaded', function () {
         fillAttendanceTable(recognizedStudents);
     });
 
-    // ============================================
-    // Функция захвата и отправки кадров
-    // ============================================
+    // Захват и отправка кадра
     async function captureAndUpload() {
-        // Захватываем кадр с видео
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         let dataURL = canvas.toDataURL('image/jpeg');
 
         try {
-            const response = await fetch('/auth/teacher/api/recognize', {
+            const response = await fetchWithCookie('/auth/teacher/api/recognize', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken
                 },
-                body: JSON.stringify({image: dataURL})
+                body: JSON.stringify({image: dataURL}),
             });
 
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(errorData.error || `Server error: ${response.status}`);
+                throw new Error(errorData.error || `Ошибка сервера: ${response.status}`);
             }
 
             const data = await response.json();
             if (data.error) {
                 console.error('Ошибка распознавания: ', data.error);
             } else {
-                // Очищаем предыдущие данные о лицах
                 faceLocations = [];
                 faceNames = [];
 
-                // Получаем координаты лиц и имена
                 if (data.face_locations && data.recognized) {
-                    faceLocations = data.face_locations; // Ожидаем, что сервер вернет координаты лиц
-                    faceNames = data.recognized.map(r => r.fio); // Имена распознанных лиц
+                    faceLocations = data.face_locations;
+                    faceNames = data.recognized.map(r => r.fio);
                 }
 
-                // Обновляем список распознанных студентов
                 data.recognized.forEach(recognizedStudent => {
                     if (!recognizedStudents.find(s => s.fio === recognizedStudent.fio)) {
                         recognizedStudents.push({fio: recognizedStudent.fio});
                     }
                 });
 
-                // Отображаем скриншот с рамками и подписями
                 displayScreenshotWithFaces(dataURL);
             }
         } catch (error) {
@@ -235,22 +247,17 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // ============================================
-    // Функция для отображения скриншота с рамками и подписями
-    // ============================================
+    // Отображение скриншота с рамками и подписями
     function displayScreenshotWithFaces(dataURL) {
         const img = new Image();
         img.onload = function () {
-            // Очищаем canvas и рисуем скриншот
             screenshotCtx.clearRect(0, 0, screenshotCanvas.width, screenshotCanvas.height);
             screenshotCtx.drawImage(img, 0, 0, screenshotCanvas.width, screenshotCanvas.height);
 
-            // Рисуем рамки и подписи для каждого лица
             faceLocations.forEach((location, index) => {
                 const [top, right, bottom, left] = location;
                 const name = faceNames[index] || "Неизвестный";
 
-                // Масштабируем координаты под размер canvas
                 const scaleX = screenshotCanvas.width / video.videoWidth;
                 const scaleY = screenshotCanvas.height / video.videoHeight;
                 const scaledTop = top * scaleY;
@@ -258,12 +265,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 const scaledBottom = bottom * scaleY;
                 const scaledLeft = left * scaleX;
 
-                // Рисуем зеленую рамку
                 screenshotCtx.strokeStyle = 'green';
                 screenshotCtx.lineWidth = 2;
                 screenshotCtx.strokeRect(scaledLeft, scaledTop, scaledRight - scaledLeft, scaledBottom - scaledTop);
 
-                // Рисуем подпись
                 screenshotCtx.fillStyle = 'green';
                 screenshotCtx.font = '16px Arial';
                 screenshotCtx.fillText(name, scaledLeft, scaledTop - 10);
@@ -272,12 +277,10 @@ document.addEventListener('DOMContentLoaded', function () {
         img.src = dataURL;
     }
 
-    // ============================================
-    // Функция для заполнения итоговой таблицы
-    // ============================================
+    // Заполнение итоговой таблицы посещаемости
     function fillAttendanceTable(recognizedStudents) {
         const groupName = document.getElementById('selectedGroup').textContent.trim();
-        fetch(`/auth/teacher/api/students?group=${encodeURIComponent(groupName)}`)
+        fetchWithCookie(`/auth/teacher/api/students?group=${encodeURIComponent(groupName)}`)
             .then(response => response.json())
             .then(data => {
                 if (!data.success) {
@@ -308,9 +311,7 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     }
 
-    // ============================================
     // Обработчик кнопки "Завершить"
-    // ============================================
     document.getElementById('finishBtn').addEventListener('click', function () {
         let tableRows = document.querySelectorAll('#attendanceTable tbody tr');
         let attendanceData = [];
@@ -325,12 +326,9 @@ document.addEventListener('DOMContentLoaded', function () {
         const selectedGroup = document.getElementById('selectedGroup').textContent.trim();
         const groupId = document.querySelector(`#groupOptions option[value="${selectedGroup}"]`).dataset.id;
 
-        fetch('/auth/teacher/api/submit_attendance', {
+        fetchWithCookie('/auth/teacher/api/submit_attendance', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken
-            },
+            headers: {},
             body: JSON.stringify({
                 students: attendanceData,
                 subject_id: selectedSubjectId,

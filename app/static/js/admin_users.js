@@ -1,4 +1,54 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // Универсальная функция fetch с JWT и обработкой ошибок
+    async function fetchWithCookie(url, options = {}) {
+        const csrfToken = getCookie('csrf_access_token');
+
+        // Проверка CSRF-токена для запросов, изменяющих состояние
+        if (['POST', 'PUT', 'DELETE'].includes(options.method?.toUpperCase()) && !csrfToken) {
+            console.error('CSRF-токен не найден');
+            window.location.href = '/auth/login';
+            return;
+        }
+
+        // Настройка заголовков
+        const headers = {
+            ...(options.headers || {}),
+        };
+
+        // Добавляем X-CSRF-TOKEN, если он есть
+        if (csrfToken) {
+            headers['X-CSRF-TOKEN'] = csrfToken;
+        }
+
+        // Устанавливаем Content-Type только если не указан в options и тело — строка
+        if (!headers['Content-Type'] && options.body && typeof options.body === 'string') {
+            headers['Content-Type'] = 'application/json';
+        }
+
+        const response = await fetch(url, {
+            ...options,
+            credentials: 'include', // Отправляем cookie
+            headers: headers
+        });
+
+        // Обработка ошибок 401 и 403
+        if (response.status === 401 || response.status === 403) {
+            window.location.href = '/auth/login';
+            throw new Error('Unauthorized или Forbidden');
+        }
+
+        return response;
+    }
+
+
+    // Функция чтения куки
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return null;
+    }
+
     // ============================================
     // Получение ссылок на DOM-элементы
     // ============================================
@@ -22,19 +72,15 @@ document.addEventListener('DOMContentLoaded', () => {
         searchFio: document.getElementById("searchFio")
     };
 
-    // ============================================
-    // Получение CSRF-токена и ID текущего пользователя
-    // ============================================
-    const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
     const currentUserId = parseInt(elements.userData.getAttribute('data-current-user-id'), 10);
 
     // ============================================
     // Состояние сортировки таблицы
     // ============================================
-    let sortState = { column: null, order: null };
+    let sortState = {column: null, order: null};
 
     // ============================================
-    // Функция обновления индикаторов сортировки
+    // Обновление индикаторов сортировки
     // ============================================
     function updateSortIndicators() {
         document.querySelectorAll('#usersTableDisplay thead th[data-column]').forEach(th => {
@@ -57,16 +103,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ============================================
-    // Функция сортировки таблицы пользователей
+    // Сортировка таблицы пользователей
     // ============================================
     function sortTable(column) {
         const rows = Array.from(elements.displayTableBody.querySelectorAll('tr'));
         if (rows.length === 0) return;
         let columnIndex;
         switch (column) {
-            case 'fio': columnIndex = 0; break;
-            case 'role': columnIndex = 4; break; // Обновлено из-за новых колонок
-            default: return;
+            case 'fio':
+                columnIndex = 0;
+                break;
+            case 'role':
+                columnIndex = 4;
+                break;
+            default:
+                return;
         }
         if (sortState.column === column) {
             sortState.order = sortState.order === 'asc' ? 'desc' : 'asc';
@@ -84,16 +135,11 @@ document.addEventListener('DOMContentLoaded', () => {
         updateSortIndicators();
     }
 
-    // ============================================
-    // Обработчики кликов на заголовки столбцов таблицы
-    // ============================================
+    // Добавление обработчиков кликов для заголовков столбцов таблицы
     document.querySelectorAll('#usersTableDisplay thead th[data-column]').forEach(th => {
         th.addEventListener('click', () => sortTable(th.getAttribute('data-column')));
     });
 
-    // ============================================
-    // Инициализация индикаторов сортировки
-    // ============================================
     updateSortIndicators();
 
     // ============================================
@@ -107,7 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ============================================
-    // Установка обработчиков событий
+    // Настройка обработчиков событий
     // ============================================
     function setupEventListeners() {
         elements.showUsersButton.addEventListener("click", showUsers);
@@ -158,20 +204,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // ============================================
     async function loadUsers() {
         try {
-            const response = await fetch('/auth/admin/api/users', {
-                method: 'GET',
-                headers: {'Content-Type': 'application/json'}
+            const response = await fetchWithCookie('/auth/admin/api/users', {
+                method: 'GET'
             });
             if (!response.ok) throw new Error('Ошибка сети');
             const data = await response.json();
             renderUsers(data.users || []);
         } catch (error) {
-            console.error('Ошибка при загрузке пользователей:', error);
+            console.error('Ошибка загрузки пользователей:', error);
         }
     }
 
     // ============================================
-    // Отрисовка списка пользователей в таблице
+    // Отрисовка пользователей в таблице
     // ============================================
     function renderUsers(users) {
         elements.displayTableBody.innerHTML = '';
@@ -198,7 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ============================================
-    // Функция проверки сложности пароля
+    // Проверка сложности пароля
     // ============================================
     function isPasswordStrong(password) {
         const minLength = 8;
@@ -209,7 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ============================================
-    // Открытие и закрытие модального окна редактирования пароля
+    // Открытие/закрытие модального окна редактирования пароля
     // ============================================
     function openPasswordModal(userId) {
         elements.passwordModal.style.display = "block";
@@ -221,14 +266,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ============================================
-    // Обработчик кнопки сохранения нового пароля
+    // Обработчик сохранения нового пароля
     // ============================================
     async function saveNewPassword() {
         const userId = elements.savePasswordButton.getAttribute("data-user-id");
         const newPassword = elements.newPasswordInput.value;
         const confirmPassword = elements.confirmPasswordInput.value;
         if (!isPasswordStrong(newPassword)) {
-            alert("Пароль слишком слабый! Должен содержать минимум 8 символов, хотя бы одну заглавную, одну строчную букву и один спецсимвол.");
+            alert("Пароль слишком слабый! Должен быть не менее 8 символов, с одной заглавной, одной строчной буквой и одним спецсимволом.");
             return;
         }
         if (newPassword !== confirmPassword) {
@@ -236,9 +281,9 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         try {
-            const response = await fetch(`/auth/admin/api/update_password/${userId}`, {
+            const response = await fetchWithCookie(`/auth/admin/api/update_password/${userId}`, {
                 method: "POST",
-                headers: {"Content-Type": "application/json", "X-CSRFToken": csrfToken},
+                headers: {},
                 body: JSON.stringify({new_password: newPassword})
             });
             const data = await response.json();
@@ -246,7 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert("Пароль обновлён!");
                 closePasswordModal();
             } else {
-                alert("Ошибка при смене пароля.");
+                alert("Ошибка обновления пароля.");
             }
         } catch (error) {
             console.error("Ошибка:", error);
@@ -254,23 +299,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ============================================
-    // Обработчик действий с пользователями (удаление, редактирование)
+    // Обработка действий с пользователями (удаление/редактирование)
     // ============================================
     async function handleUserActions(e) {
         if (e.target.classList.contains("deleteUser")) {
             const userId = e.target.getAttribute("data-id");
             if (confirm("Вы уверены, что хотите удалить этого пользователя?")) {
                 try {
-                    const response = await fetch(`/auth/admin/api/delete_user/${userId}`, {
+                    const response = await fetchWithCookie(`/auth/admin/api/delete_user/${userId}`, {
                         method: "DELETE",
-                        headers: {"Content-Type": "application/json", "X-CSRFToken": csrfToken}
+                        headers: {}
                     });
                     const data = await response.json();
                     if (data.success) {
                         alert("Пользователь удалён");
                         loadUsers();
                     } else {
-                        alert("Ошибка при удалении");
+                        alert("Ошибка удаления пользователя");
                     }
                 } catch (error) {
                     console.error("Ошибка:", error);
@@ -284,9 +329,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             try {
-                const checkResponse = await fetch("/auth/admin/api/check_password", {
+                const checkResponse = await fetchWithCookie("/auth/admin/api/check_password", {
                     method: "POST",
-                    headers: {"Content-Type": "application/json", "X-CSRFToken": csrfToken},
+                    headers: {},
                     body: JSON.stringify({password: currentPassword})
                 });
                 const checkData = await checkResponse.json();
@@ -296,7 +341,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 openPasswordModal(userId);
             } catch (error) {
-                console.error("Ошибка при проверке пароля:", error);
+                console.error("Ошибка проверки пароля:", error);
             }
         }
     }
@@ -380,12 +425,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // ============================================
     async function getExistingLogins() {
         try {
-            const response = await fetch('/auth/admin/api/get_logins');
+            const response = await fetchWithCookie('/auth/admin/api/get_logins');
             if (!response.ok) throw new Error('Ошибка сети');
             const data = await response.json();
             return new Set(data.logins);
         } catch (error) {
-            console.error('Ошибка при получении логинов:', error);
+            console.error('Ошибка получения логинов:', error);
             return new Set();
         }
     }
@@ -500,15 +545,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     appendError(roleInput, 'Выберите роль');
                     isValid = false;
                 }
-                users.push({ fio, mail, birth_date, login, password, role });
+                users.push({fio, mail, birth_date, login, password, role});
             }
         }
         if (!isValid) return;
         try {
-            const response = await fetch('/auth/admin/api/register_users', {
+            const response = await fetchWithCookie('/auth/admin/api/register_users', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
-                body: JSON.stringify({ users })
+                headers: {},
+                body: JSON.stringify({users})
             });
             const data = await response.json();
             if (data.success) {
@@ -552,25 +597,23 @@ document.addEventListener('DOMContentLoaded', () => {
             const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
             ws['!cols'] = headers.map((header, colIndex) => {
                 const maxLength = Math.max(...data.map(row => (row[colIndex] || '').toString().length), header.length);
-                return { wch: maxLength + 2 };
+                return {wch: maxLength + 2};
             });
-            return { ws, sheetName };
+            return {ws, sheetName};
         }
 
         if (adminData.length > 0) {
-            const { ws, sheetName } = createSheet(adminData, 'Администраторы');
+            const {ws, sheetName} = createSheet(adminData, 'Администраторы');
             XLSX.utils.book_append_sheet(wb, ws, sheetName);
         }
         if (teacherData.length > 0) {
-            const { ws, sheetName } = createSheet(teacherData, 'Преподаватели');
+            const {ws, sheetName} = createSheet(teacherData, 'Преподаватели');
             XLSX.utils.book_append_sheet(wb, ws, sheetName);
         }
         XLSX.writeFile(wb, fileName);
     }
 
-    // ============================================
-    // Изначальная инициализация отображения
-    // ============================================
+    // Инициализация
     initializeDisplay();
     setupEventListeners();
 });

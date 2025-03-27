@@ -1,7 +1,54 @@
 document.addEventListener("DOMContentLoaded", function () {
-    // ============================================
+    // Универсальная функция fetch, которая отправляет запрос с включением cookie
+    async function fetchWithCookie(url, options = {}) {
+        const csrfToken = getCookie('csrf_access_token');
+
+        // Проверка CSRF-токена для запросов, изменяющих состояние
+        if (['POST', 'PUT', 'DELETE'].includes(options.method?.toUpperCase()) && !csrfToken) {
+            console.error('CSRF-токен не найден');
+            window.location.href = '/auth/login';
+            return;
+        }
+
+        // Настройка заголовков
+        const headers = {
+            ...(options.headers || {}),
+        };
+
+        // Добавляем X-CSRF-TOKEN, если он есть
+        if (csrfToken) {
+            headers['X-CSRF-TOKEN'] = csrfToken;
+        }
+
+        // Устанавливаем Content-Type только если не указан в options и тело — строка
+        if (!headers['Content-Type'] && options.body && typeof options.body === 'string') {
+            headers['Content-Type'] = 'application/json';
+        }
+
+        const response = await fetch(url, {
+            ...options,
+            credentials: 'include', // Отправляем cookie
+            headers: headers
+        });
+
+        // Обработка ошибок 401 и 403
+        if (response.status === 401 || response.status === 403) {
+            window.location.href = '/auth/login';
+            throw new Error('Unauthorized или Forbidden');
+        }
+
+        return response;
+    }
+
+    // Функция чтения куки
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return null;
+    }
+
     // Получение ссылок на DOM-элементы
-    // ============================================
     const teacherFilter = document.getElementById("teacherFilter");
     const lessonFilter = document.getElementById("lessonFilter");
     const groupFilter = document.getElementById("groupFilter");
@@ -10,19 +57,14 @@ document.addEventListener("DOMContentLoaded", function () {
     const exportButton = document.getElementById("exportButton");
     const attendanceTables = document.getElementById("attendanceTables");
 
-    // Текущее состояние данных (для экспорта и обновления таблиц)
     let currentData = null;
-    // Глобальный список всех преподавателей (для вывода почты при одинаковых ФИО)
     let allTeachers = [];
 
-    // ============================================
+
     // Универсальная функция для обновления выпадающих списков
-    // ============================================
     function updateSelectOptions(selectElement, options, defaultLabel) {
-        const currentValue = selectElement.value; // Запоминаем текущее значение
-        // Очищаем список и добавляем пункт по умолчанию
+        const currentValue = selectElement.value;
         selectElement.innerHTML = `<option value="">${defaultLabel}</option>`;
-        // Если это селект преподавателей, добавляем почту при дубликатах ФИО
         if (selectElement.id === "teacherFilter") {
             let fioCount = {};
             options.forEach(option => {
@@ -36,16 +78,12 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
                 selectElement.innerHTML += `<option value="${option.id}">${displayText}</option>`;
             });
-            // Сохраняем глобально список всех преподавателей
             allTeachers = options;
         } else {
-            // Для остальных селектов используем стандартное отображение
             options.forEach(option => {
-                // Предполагается, что для них используется option.name
                 selectElement.innerHTML += `<option value="${option.id}">${option.name}</option>`;
             });
         }
-        // Восстанавливаем текущее значение, если оно присутствует в новом списке
         if (currentValue && options.some(opt => opt.id == currentValue)) {
             selectElement.value = currentValue;
         } else {
@@ -53,11 +91,9 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    // ============================================
     // Функции для загрузки данных с сервера
-    // ============================================
     function loadAllTeachers() {
-        return fetch('/auth/admin/api/get_all_teachers')
+        return fetchWithCookie('/auth/admin/api/get_all_teachers')
             .then(response => response.json())
             .then(teachers => {
                 updateSelectOptions(teacherFilter, teachers, "Все преподаватели");
@@ -66,7 +102,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function loadAllLessons() {
-        return fetch('/auth/admin/api/get_all_lessons')
+        return fetchWithCookie('/auth/admin/api/get_all_lessons')
             .then(response => response.json())
             .then(lessons => {
                 updateSelectOptions(lessonFilter, lessons, "Все предметы");
@@ -75,7 +111,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function loadAllGroups() {
-        return fetch('/auth/admin/api/get_all_groups')
+        return fetchWithCookie('/auth/admin/api/get_all_groups')
             .then(response => response.json())
             .then(groups => {
                 updateSelectOptions(groupFilter, groups, "Все группы");
@@ -83,13 +119,10 @@ document.addEventListener("DOMContentLoaded", function () {
             .catch(error => console.error('Ошибка загрузки групп:', error));
     }
 
-    // ============================================
-    // Функции обновления списков в зависимости от выбранного фильтра
-    // ============================================
     function updateLessonsByTeacher() {
         const teacherId = teacherFilter.value;
         if (teacherId) {
-            return fetch(`/auth/admin/api/get_lessons_by_teacher?teacher_id=${teacherId}`)
+            return fetchWithCookie(`/auth/admin/api/get_lessons_by_teacher?teacher_id=${teacherId}`)
                 .then(response => response.json())
                 .then(lessons => {
                     updateSelectOptions(lessonFilter, lessons, "Все предметы");
@@ -103,7 +136,7 @@ document.addEventListener("DOMContentLoaded", function () {
     function updateGroupsByTeacher() {
         const teacherId = teacherFilter.value;
         if (teacherId) {
-            return fetch(`/auth/admin/api/get_groups_by_teacher?teacher_id=${teacherId}`)
+            return fetchWithCookie(`/auth/admin/api/get_groups_by_teacher?teacher_id=${teacherId}`)
                 .then(response => response.json())
                 .then(groups => {
                     updateSelectOptions(groupFilter, groups, "Все группы");
@@ -117,7 +150,7 @@ document.addEventListener("DOMContentLoaded", function () {
     function updateGroupsByLesson() {
         const lessonId = lessonFilter.value;
         if (lessonId) {
-            return fetch(`/auth/admin/api/get_groups_by_lesson?lesson_id=${lessonId}`)
+            return fetchWithCookie(`/auth/admin/api/get_groups_by_lesson?lesson_id=${lessonId}`)
                 .then(response => response.json())
                 .then(groups => {
                     updateSelectOptions(groupFilter, groups, "Все группы");
@@ -131,7 +164,7 @@ document.addEventListener("DOMContentLoaded", function () {
     function updateLessonsByGroup() {
         const groupId = groupFilter.value;
         if (groupId) {
-            return fetch(`/auth/admin/api/get_lessons_by_group?group_id=${groupId}`)
+            return fetchWithCookie(`/auth/admin/api/get_lessons_by_group?group_id=${groupId}`)
                 .then(response => response.json())
                 .then(lessons => {
                     updateSelectOptions(lessonFilter, lessons, "Все предметы");
@@ -145,7 +178,7 @@ document.addEventListener("DOMContentLoaded", function () {
     function updateTeachersByGroup() {
         const groupId = groupFilter.value;
         if (groupId) {
-            return fetch(`/auth/admin/api/get_teachers_by_group?group_id=${groupId}`)
+            return fetchWithCookie(`/auth/admin/api/get_teachers_by_group?group_id=${groupId}`)
                 .then(response => response.json())
                 .then(teachers => {
                     updateSelectOptions(teacherFilter, teachers, "Все преподаватели");
@@ -159,7 +192,7 @@ document.addEventListener("DOMContentLoaded", function () {
     function updateTeachersByLesson() {
         const lessonId = lessonFilter.value;
         if (lessonId) {
-            return fetch(`/auth/admin/api/get_teachers_by_lesson?lesson_id=${lessonId}`)
+            return fetchWithCookie(`/auth/admin/api/get_teachers_by_lesson?lesson_id=${lessonId}`)
                 .then(response => response.json())
                 .then(teachers => {
                     updateSelectOptions(teacherFilter, teachers, "Все преподаватели");
@@ -170,18 +203,33 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    // ============================================
+    function updateTeachers() {
+        const groupId = groupFilter.value;
+        const lessonId = lessonFilter.value;
+        if (groupId && lessonId) {
+            return fetchWithCookie(`/auth/admin/api/get_teachers_by_group_and_lesson?group_id=${groupId}&lesson_id=${lessonId}`)
+                .then(response => response.json())
+                .then(teachers => {
+                    updateSelectOptions(teacherFilter, teachers, "Все преподаватели");
+                })
+                .catch(error => console.error('Ошибка в updateTeachersByGroupAndLesson:', error));
+        } else if (groupId) {
+            return updateTeachersByGroup();
+        } else if (lessonId) {
+            return updateTeachersByLesson();
+        } else {
+            return loadAllTeachers();
+        }
+    }
+
     // Функция для применения фильтров и загрузки данных
-    // ============================================
     function applyFilters() {
-        // Получаем значения всех фильтров
         const teacherId = teacherFilter.value || "";
         const lessonId = lessonFilter.value || "";
         const groupId = groupFilter.value || "";
         const dateFrom = dateFromFilter.value || "";
         const dateTo = dateToFilter.value || "";
 
-        // Формируем параметры запроса
         const params = new URLSearchParams({
             teacher_id: teacherId,
             lesson_id: lessonId,
@@ -191,7 +239,7 @@ document.addEventListener("DOMContentLoaded", function () {
             format: "json"
         });
 
-        fetch(`/auth/admin/dashboard?${params.toString()}`)
+        fetchWithCookie(`/auth/admin/dashboard?${params.toString()}`)
             .then(response => response.json())
             .then(data => {
                 attendanceTables.innerHTML = "";
@@ -202,7 +250,6 @@ document.addEventListener("DOMContentLoaded", function () {
                     return;
                 }
 
-                // Сортируем данные по преподавателю, предмету и группе
                 data.attendance_by_group.sort((a, b) => {
                     if (a.teacher_fio < b.teacher_fio) return -1;
                     if (a.teacher_fio > b.teacher_fio) return 1;
@@ -213,14 +260,22 @@ document.addEventListener("DOMContentLoaded", function () {
                     return 0;
                 });
 
-                // Для каждой группы создаём блок с таблицей посещаемости
+                function compareFio(studentA, studentB) {
+                    const [aSurname, aName, aPatronymic] = (studentA.fio || "").split(" ");
+                    const [bSurname, bName, bPatronymic] = (studentB.fio || "").split(" ");
+                    const surnameCompare = (aSurname || "").localeCompare(bSurname || "");
+                    if (surnameCompare !== 0) return surnameCompare;
+                    const nameCompare = (aName || "").localeCompare(bName || "");
+                    if (nameCompare !== 0) return nameCompare;
+                    return (aPatronymic || "").localeCompare(bPatronymic || "");
+                }
+
                 data.attendance_by_group.forEach(groupData => {
-                    // Если у преподавателей одинаковые ФИО, добавляем почту в скобках
+                    groupData.students.sort(compareFio);
                     let teacherDisplay = groupData.teacher_fio;
                     if (allTeachers.length > 0) {
                         const teacherObj = allTeachers.find(t => t.fio.trim() === groupData.teacher_fio.trim());
                         if (teacherObj) {
-                            // Если одинаковых записей больше одной, добавляем почту
                             let duplicateCount = allTeachers.filter(t => t.fio.trim() === teacherObj.fio.trim()).length;
                             if (duplicateCount > 1) {
                                 teacherDisplay += ` (${teacherObj.mail})`;
@@ -228,7 +283,6 @@ document.addEventListener("DOMContentLoaded", function () {
                         }
                     }
 
-                    // Создаём заголовок с информацией о преподавателе (с почтой, если есть), предмете и группе
                     const groupBlock = document.createElement("div");
                     groupBlock.className = "group-block";
                     groupBlock.innerHTML = `
@@ -237,16 +291,12 @@ document.addEventListener("DOMContentLoaded", function () {
                         <h3>Группа: ${groupData.groupname}</h3>
                     `;
 
-                    // Создаём таблицу для посещаемости
                     const table = document.createElement("table");
                     table.className = "attendance-table";
-
-                    // Формируем заголовок таблицы с датами
                     const thead = document.createElement("thead");
                     thead.innerHTML = `<tr><th>ФИО студента</th>` + groupData.dates.map(date => `<th>${date}</th>`).join("") + `</tr>`;
                     table.appendChild(thead);
 
-                    // Формируем тело таблицы со списком студентов и их посещаемостью
                     const tbody = document.createElement("tbody");
                     groupData.students.forEach(student => {
                         const tr = document.createElement("tr");
@@ -269,32 +319,29 @@ document.addEventListener("DOMContentLoaded", function () {
             });
     }
 
-    // ============================================
     // Изначальная загрузка данных
-    // ============================================
     Promise.all([loadAllTeachers(), loadAllLessons(), loadAllGroups()]).then(() => {
-        applyFilters(); // Загружаем данные по умолчанию
+        applyFilters();
     });
 
-    // ============================================
-    // Обработчики событий для динамического обновления фильтров
-    // ============================================
+    // Обработчики событий для фильтров
     teacherFilter.addEventListener("change", () => {
         Promise.all([updateLessonsByTeacher(), updateGroupsByTeacher()]).then(() => applyFilters());
     });
+
     lessonFilter.addEventListener("change", () => {
-        Promise.all([updateTeachersByLesson(), updateGroupsByLesson()]).then(() => applyFilters());
+        Promise.all([updateTeachers(), updateGroupsByLesson()]).then(() => applyFilters());
     });
+
     groupFilter.addEventListener("change", () => {
-        Promise.all([updateLessonsByGroup(), updateTeachersByGroup()]).then(() => applyFilters());
+        Promise.all([updateTeachers(), updateLessonsByGroup()]).then(() => applyFilters());
     });
+
     dateFromFilter.addEventListener("change", applyFilters);
     dateToFilter.addEventListener("change", applyFilters);
     exportButton.addEventListener("click", exportToExcel);
 
-    // ============================================
     // Функция для экспорта данных в Excel
-    // ============================================
     function exportToExcel() {
         if (!currentData || currentData.message) {
             alert("Нет данных для выгрузки.");
@@ -310,12 +357,10 @@ document.addEventListener("DOMContentLoaded", function () {
             }
             const sheetData = subjectsMap.get(lessonName);
 
-            // Определяем отображаемое имя преподавателя с почтой, если есть дубликаты ФИО
             let teacherDisplay = groupData.teacher_fio;
             if (allTeachers && allTeachers.length > 0) {
                 const teacherObj = allTeachers.find(t => t.fio.trim() === groupData.teacher_fio.trim());
                 if (teacherObj) {
-                    // Если одинаковых записей больше одной, добавляем почту
                     let duplicateCount = allTeachers.filter(t => t.fio.trim() === teacherObj.fio.trim()).length;
                     if (duplicateCount > 1 && teacherObj.mail) {
                         teacherDisplay += ` (${teacherObj.mail})`;
@@ -323,7 +368,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
             }
 
-            // Формирование заголовков для листа
             sheetData.push([`Преподаватель: ${teacherDisplay}`]);
             sheetData.push([`Предмет: ${lessonName}`]);
             sheetData.push([`Группа: ${groupData.groupname}`]);
@@ -331,7 +375,6 @@ document.addEventListener("DOMContentLoaded", function () {
             const header = ["ФИО студента"].concat(groupData.dates);
             sheetData.push(header);
 
-            // Добавляем данные о студентах и их посещаемости
             groupData.students.forEach(student => {
                 const row = [student.fio];
                 groupData.dates.forEach(date => {
@@ -342,7 +385,6 @@ document.addEventListener("DOMContentLoaded", function () {
             sheetData.push([]);
         });
 
-        // Формирование листов и настройка ширины столбцов
         subjectsMap.forEach((ws_data, lessonName) => {
             const ws = XLSX.utils.aoa_to_sheet(ws_data);
             let colWidths = [];
@@ -358,7 +400,6 @@ document.addEventListener("DOMContentLoaded", function () {
             XLSX.utils.book_append_sheet(wb, ws, lessonName.substring(0, 31));
         });
 
-        // Генерация имени файла с текущей датой и временем
         const now = new Date();
         const dateStr = now.toISOString().replace(/T/, '_').replace(/\..+/, '').replace(/:/g, '-');
         const fileName = `Посещаемость на ${dateStr}.xlsx`;

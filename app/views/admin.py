@@ -4,9 +4,11 @@ from datetime import datetime, timedelta
 import json
 import face_recognition
 from flask import Blueprint, render_template, request, jsonify, current_app
-from flask_login import login_required, current_user
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash, check_password_hash
+
 import re
+
 from app.forms.register_form import RegisterForm
 from app.models.role import Role
 from app.views.auth import role_required
@@ -33,21 +35,20 @@ def custom_secure_filename(filename):
 # Приветствие и общие маршруты
 # ============================================
 
-# Отображает страницу приветствия для администратора
 @admin_bp.route('/hello')
-@login_required
+@jwt_required()
 @role_required('admin')
 def hello():
     """Отображает страницу приветствия для администратора."""
-    return render_template('admin_hello.html', first_start=current_user.first_start, user_id=current_user.id)
-
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    return render_template('admin_hello.html', first_start=user.first_start, user_id=user.id, current_user=user)
 # ============================================
 # Управление посещаемостью
 # ============================================
 
-# Отображает дашборд с данными о посещаемости с поддержкой фильтрации
 @admin_bp.route('/dashboard', methods=['GET'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def dashboard():
     """
@@ -119,7 +120,8 @@ def dashboard():
                 students_in_group = Student.query.filter_by(id_group=group.id).all()
                 for student in students_in_group:
                     if student.fio not in attendance_data[key]['students']:
-                        attendance_data[key]['students'][student.fio] = {date: "✖" for date in attendance_data[key]['dates']}
+                        attendance_data[key]['students'][student.fio] = {date: "✖" for date in
+                                                                         attendance_data[key]['dates']}
                     else:
                         for date in attendance_data[key]['dates']:
                             if date not in attendance_data[key]['students'][student.fio]:
@@ -143,15 +145,19 @@ def dashboard():
 
     return render_template('admin_dashboard.html', teachers=teachers, lessons=[], groups=[])
 
-# Возвращает данные о посещаемости для конкретной группы и даты
 @admin_bp.route('/api/attendance', methods=['GET'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def get_attendance():
     """
     Возвращает данные о посещаемости для конкретной группы и даты.
     Используется для получения списка студентов с отметками о присутствии.
     """
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    if not user or user.role.rolename != 'admin':
+        return jsonify({"message": "Доступ запрещён"}), 403
+
     group_id = request.args.get('group_id')
     selected_date = request.args.get('date')
     students = Student.query.filter_by(id_group=group_id).all()
@@ -175,9 +181,8 @@ def get_attendance():
 # Дополнительные API для фильтров
 # ============================================
 
-# Возвращает список предметов для указанной группы
 @admin_bp.route('/api/get_lessons_by_group', methods=['GET'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def get_lessons_by_group():
     """Возвращает список предметов для указанной группы."""
@@ -189,9 +194,8 @@ def get_lessons_by_group():
         return jsonify([{'id': lesson.id, 'name': lesson.lesson} for lesson in lessons])
     return jsonify([])
 
-# Возвращает список групп для указанного предмета
 @admin_bp.route('/api/get_groups_by_lesson', methods=['GET'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def get_groups_by_lesson():
     """Возвращает список групп для указанного предмета."""
@@ -203,9 +207,8 @@ def get_groups_by_lesson():
         return jsonify([{'id': group.id, 'name': group.groupname} for group in groups])
     return jsonify([])
 
-# Возвращает список групп для указанного преподавателя
 @admin_bp.route('/api/get_groups_by_teacher', methods=['GET'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def get_groups_by_teacher():
     """Возвращает список групп для указанного преподавателя."""
@@ -217,9 +220,8 @@ def get_groups_by_teacher():
         return jsonify([{'id': group.id, 'name': group.groupname} for group in groups])
     return jsonify([])
 
-# Возвращает список предметов для указанного преподавателя
 @admin_bp.route('/api/get_lessons_by_teacher', methods=['GET'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def get_lessons_by_teacher():
     """Возвращает список предметов для указанного преподавателя."""
@@ -229,9 +231,8 @@ def get_lessons_by_teacher():
         return jsonify([{'id': lesson.id, 'name': lesson.lesson} for lesson in lessons])
     return jsonify([])
 
-# Возвращает список преподавателей для указанной группы
 @admin_bp.route('/api/get_teachers_by_group', methods=['GET'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def get_teachers_by_group():
     """Возвращает список преподавателей для указанной группы."""
@@ -243,9 +244,8 @@ def get_teachers_by_group():
         return jsonify([{'id': teacher.id, 'name': teacher.fio} for teacher in teachers])
     return jsonify([])
 
-# Возвращает список преподавателей для указанного предмета
 @admin_bp.route('/api/get_teachers_by_lesson', methods=['GET'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def get_teachers_by_lesson():
     """Возвращает список преподавателей для указанного предмета."""
@@ -257,9 +257,33 @@ def get_teachers_by_lesson():
         return jsonify([{'id': teacher.id, 'name': teacher.fio} for teacher in teachers])
     return jsonify([])
 
-# Возвращает список групп для указанного преподавателя и предмета
+@admin_bp.route('/api/get_teachers_by_group_and_lesson', methods=['GET'])
+@jwt_required()
+@role_required('admin')
+def get_teachers_by_group_and_lesson():
+    """
+    Возвращает список преподавателей, у которых есть записи посещаемости
+    для указанной группы И указанного предмета.
+    """
+    group_id = request.args.get('group_id', type=int)
+    lesson_id = request.args.get('lesson_id', type=int)
+    if group_id and lesson_id:
+        teachers = (User.query
+                    .join(Teacher, Teacher.id_user == User.id)
+                    .join(Attendance, Attendance.id_teacher == Teacher.id)
+                    .filter(Attendance.id_group == group_id)
+                    .filter(Teacher.id_lesson == lesson_id)
+                    .distinct()
+                    .all())
+        return jsonify([{
+            'id': t.id,
+            'fio': t.fio,
+            'mail': t.mail
+        } for t in teachers])
+    return jsonify([])
+
 @admin_bp.route('/api/get_groups_by_teacher_and_lesson', methods=['GET'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def get_groups_by_teacher_and_lesson():
     """Возвращает список групп для указанного преподавателя и предмета."""
@@ -273,27 +297,24 @@ def get_groups_by_teacher_and_lesson():
         return jsonify([{'id': group.id, 'name': group.groupname} for group in groups])
     return jsonify([])
 
-# Возвращает список всех преподавателей для начальной загрузки фильтров
 @admin_bp.route('/api/get_all_teachers', methods=['GET'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def get_all_teachers():
     """Возвращает список всех преподавателей для начальной загрузки фильтров."""
     teachers = User.query.filter(User.role.has(rolename='teacher')).all()
     return jsonify([{'id': teacher.id, 'fio': teacher.fio, 'mail': teacher.mail} for teacher in teachers])
 
-# Возвращает список всех предметов для начальной загрузки фильтров
 @admin_bp.route('/api/get_all_lessons', methods=['GET'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def get_all_lessons():
     """Возвращает список всех предметов для начальной загрузки фильтров."""
     lessons = Lesson.query.all()
     return jsonify([{'id': lesson.id, 'name': lesson.lesson} for lesson in lessons])
 
-# Возвращает список всех групп для начальной загрузки фильтров
 @admin_bp.route('/api/get_all_groups', methods=['GET'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def get_all_groups():
     """Возвращает список всех групп для начальной загрузки фильтров."""
@@ -304,18 +325,16 @@ def get_all_groups():
 # Управление пользователями
 # ============================================
 
-# Отображает страницу управления пользователями
 @admin_bp.route('/users', methods=['GET'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def users_page():
     """Отображает страницу управления пользователями."""
-    current_user_id = current_user.id if current_user.is_authenticated else None
-    return render_template('admin_users.html', current_user_id=current_user_id)
+    user_id = get_jwt_identity()
+    return render_template('admin_users.html', current_user_id=user_id)
 
-# Возвращает список всех пользователей в формате JSON
 @admin_bp.route('/api/users', methods=['GET'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def api_get_users():
     """Возвращает список всех пользователей в формате JSON, включая mail и birth_date."""
@@ -331,12 +350,11 @@ def api_get_users():
         }
         for user in users
     ]
-    current_user_id = current_user.id if current_user.is_authenticated else None
-    return jsonify({'current_user': current_user_id, 'users': users_data})
+    user_id = get_jwt_identity()
+    return jsonify({'current_user': user_id, 'users': users_data})
 
-# Проверяет соответствие введённого пароля паролю текущего пользователя
 @admin_bp.route('/api/check_password', methods=['POST'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def check_password():
     """Проверяет, соответствует ли введённый пароль паролю текущего пользователя."""
@@ -344,13 +362,14 @@ def check_password():
     if not data or 'password' not in data:
         return jsonify({'success': False, 'message': 'Пароль не предоставлен'}), 400
     entered_password = data['password']
-    if check_password_hash(current_user.password, entered_password):
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    if check_password_hash(user.password, entered_password):
         return jsonify({'success': True})
     return jsonify({'success': False, 'message': 'Неверный пароль'}), 400
 
-# Обрабатывает регистрацию пользователей через JSON
 @admin_bp.route('/api/register_users', methods=['POST'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def register_users():
     """Обрабатывает регистрацию пользователей через JSON, включая mail и birth_date."""
@@ -402,9 +421,9 @@ def is_password_strong(password):
         re.search(r'[\W_]', password)
     )
 
-# Обновляет пароль пользователя по его ID
 @admin_bp.route("/api/update_password/<int:user_id>", methods=["POST"])
-@login_required
+@jwt_required()
+@role_required('admin')
 def update_password(user_id):
     """
     Обновляет пароль пользователя по его ID.
@@ -419,19 +438,20 @@ def update_password(user_id):
     user = User.query.get(user_id)
     if not user:
         return jsonify({"success": False, "message": "Пользователь не найден"}), 404
-    if user.id == current_user.id and user.first_start:
+    current_user_id = get_jwt_identity()
+    if user.id == current_user_id and user.first_start:
         user.first_start = False
     user.password = generate_password_hash(new_password, method='pbkdf2:sha256', salt_length=8)
     db.session.commit()
     return jsonify({"success": True})
 
-# Удаляет пользователя по ID, запрещая удаление текущего пользователя
 @admin_bp.route('/api/delete_user/<int:user_id>', methods=['DELETE'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def delete_user(user_id):
     """Удаляет пользователя по ID, запрещая удаление текущего пользователя."""
-    if current_user.id == user_id:
+    current_user_id = get_jwt_identity()
+    if current_user_id == user_id:
         return jsonify({'success': False, 'message': 'Нельзя удалить текущего пользователя'}), 403
     user = User.query.get(user_id)
     if user:
@@ -440,9 +460,8 @@ def delete_user(user_id):
         return jsonify({'success': True})
     return jsonify({'success': False, 'message': 'Пользователь не найден'}), 404
 
-# Возвращает список всех логинов пользователей
 @admin_bp.route('/api/get_logins', methods=['GET'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def get_logins():
     """Возвращает список всех логинов пользователей."""
@@ -454,35 +473,31 @@ def get_logins():
 # Управление преподавателями и предметами
 # ============================================
 
-# Отображает страницу управления преподавателями
 @admin_bp.route('/teachers', methods=['GET'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def teachers_page():
     """Отображает страницу управления преподавателями."""
     return render_template('admin_teachers.html')
 
-# Возвращает список ФИО всех преподавателей
 @admin_bp.route('/api/teachers', methods=['GET'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def get_teachers():
     """Возвращает список ФИО всех преподавателей."""
     teachers = User.query.filter(User.role.has(rolename='teacher')).all()
     return jsonify([teacher.fio for teacher in teachers])
 
-# Возвращает список всех предметов
 @admin_bp.route('/api/subjects', methods=['GET'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def get_subjects():
     """Возвращает список всех предметов."""
     subjects = Lesson.query.all()
     return jsonify([subject.lesson for subject in subjects])
 
-# Возвращает список связей преподавателей и предметов
 @admin_bp.route('/api/teacher_subjects', methods=['GET'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def get_teacher_subjects():
     """Возвращает список связей преподавателей и предметов."""
@@ -493,9 +508,8 @@ def get_teacher_subjects():
         'lesson': ts.lesson.lesson
     } for ts in teacher_subjects])
 
-# Добавляет новый предмет, проверяя его уникальность
 @admin_bp.route('/api/add_subject', methods=['POST'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def add_subject():
     """Добавляет новый предмет, проверяя его уникальность."""
@@ -507,9 +521,8 @@ def add_subject():
     db.session.commit()
     return jsonify({'success': True})
 
-# Добавляет связи между преподавателями и предметами
 @admin_bp.route('/api/add_teacher_subjects', methods=['POST'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def add_teacher_subjects():
     """Добавляет связи между преподавателями и предметами."""
@@ -531,9 +544,8 @@ def add_teacher_subjects():
     db.session.commit()
     return jsonify({'success': True})
 
-# Удаляет связь между преподавателем и предметом по ID
 @admin_bp.route('/api/delete_teacher_subject/<int:id>', methods=['DELETE'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def delete_teacher_subject(id):
     """Удаляет связь между преподавателем и предметом по ID."""
@@ -548,9 +560,8 @@ def delete_teacher_subject(id):
 # Управление студентами
 # ============================================
 
-# Отображает страницу управления студентами
 @admin_bp.route('/students', methods=['GET'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def students_page():
     """Отображает страницу управления студентами."""
@@ -564,18 +575,16 @@ def allowed_file(filename):
     """Проверяет, допустим ли формат файла для загрузки."""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# Возвращает список всех групп
 @admin_bp.route('/api/groups', methods=['GET'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def get_groups():
     """Возвращает список всех групп."""
     groups = Group.query.all()
     return jsonify([{'id': group.id, 'groupname': group.groupname} for group in groups])
 
-# Возвращает список студентов с возможностью фильтрации по группе
 @admin_bp.route('/api/students', methods=['GET'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def get_students():
     """Возвращает список студентов с возможностью фильтрации по группе."""
@@ -593,9 +602,8 @@ def get_students():
         'birth_date': student.birth_date.strftime('%Y-%m-%d')
     } for student in students])
 
-# Добавляет новую группу, проверяя её уникальность
 @admin_bp.route('/api/add_group', methods=['POST'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def add_group():
     """Добавляет новую группу, проверяя её уникальность."""
@@ -609,9 +617,8 @@ def add_group():
 
 logging.basicConfig(level=logging.DEBUG)
 
-# Проверяет на дубликаты студенческих ID и почты при добавлении студентов
 @admin_bp.route('/api/check_duplicates', methods=['POST'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def check_duplicates():
     """
@@ -627,7 +634,8 @@ def check_duplicates():
         logging.debug(f"Проверка студента {i}: student_id={student_id}, mail={mail}")
         if Student.query.filter_by(id=student_id).first():
             logging.warning(f"Найден дубликат студенческого билета: {student_id}")
-            return jsonify({'success': False, 'message': f'Такой студенческий билет {student_id} уже есть в базе данных.'}), 400
+            return jsonify(
+                {'success': False, 'message': f'Такой студенческий билет {student_id} уже есть в базе данных.'}), 400
         if Student.query.filter_by(mail=mail).first():
             logging.warning(f"Найден дубликат почты: {mail}")
             return jsonify({'success': False, 'message': f'Пользователь с почтой {mail} уже есть в базе данных.'}), 400
@@ -638,9 +646,8 @@ def check_duplicates():
     logging.debug("Проверка на дубликаты успешно завершена")
     return jsonify({'success': True})
 
-# Добавляет новых студентов в указанную группу, сохраняя фото и кодировки лиц
 @admin_bp.route('/api/add_students', methods=['POST'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def add_students():
     """Добавляет новых студентов в указанную группу, сохраняя фото и кодировки лиц."""
@@ -693,9 +700,8 @@ def add_students():
         db.session.rollback()
         return jsonify({'success': False, 'message': str(e)}), 400
 
-# Удаляет студента по ID, удаляя также его фото из файловой системы
 @admin_bp.route('/api/delete_student/<string:student_id>', methods=['DELETE'])
-@login_required
+@jwt_required()
 @role_required('admin')
 def delete_student(student_id):
     """Удаляет студента по ID, удаляя также его фото из файловой системы."""

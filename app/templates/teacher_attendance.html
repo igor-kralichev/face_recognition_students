@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="csrf-token" content="{{ csrf_token }}">
     <title>Преподаватель | Запись посещаемости</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles_teacher.css') }}">
 </head>
@@ -93,7 +92,6 @@
         <button type="button" class="button" id="finishBtn">Завершить</button>
     </div>
 </div>
-
 <script src="{{ url_for('static', filename='js/teacher_attendance.js') }}"></script>
 </body>
 </html>

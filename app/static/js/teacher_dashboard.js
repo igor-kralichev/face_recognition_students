@@ -1,6 +1,54 @@
 document.addEventListener("DOMContentLoaded", function () {
+    // Универсальная функция fetch с JWT и обработкой ошибок
+    async function fetchWithCookie(url, options = {}) {
+        const csrfToken = getCookie('csrf_access_token');
+
+        // Проверка CSRF-токена для запросов, изменяющих состояние
+        if (['POST', 'PUT', 'DELETE'].includes(options.method?.toUpperCase()) && !csrfToken) {
+            console.error('CSRF-токен не найден');
+            window.location.href = '/auth/login';
+            return;
+        }
+
+        // Настройка заголовков
+        const headers = {
+            ...(options.headers || {}),
+        };
+
+        // Добавляем X-CSRF-TOKEN, если он есть
+        if (csrfToken) {
+            headers['X-CSRF-TOKEN'] = csrfToken;
+        }
+
+        // Устанавливаем Content-Type только если не указан в options и тело — строка
+        if (!headers['Content-Type'] && options.body && typeof options.body === 'string') {
+            headers['Content-Type'] = 'application/json';
+        }
+
+        const response = await fetch(url, {
+            ...options,
+            credentials: 'include', // Отправляем cookie
+            headers: headers
+        });
+
+        // Обработка ошибок 401 и 403
+        if (response.status === 401 || response.status === 403) {
+            window.location.href = '/auth/login';
+            throw new Error('Unauthorized или Forbidden');
+        }
+
+        return response;
+    }
+
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return null;
+    }
+
     // ============================================
-    // Получение ссылок на DOM-элементы
+    // Получение DOM-элементов
     // ============================================
     const lessonFilter = document.getElementById("lessonFilter");
     const groupFilter = document.getElementById("groupFilter");
@@ -9,30 +57,29 @@ document.addEventListener("DOMContentLoaded", function () {
     const exportButton = document.getElementById("exportButton");
     const attendanceTables = document.getElementById("attendanceTables");
 
-    let currentData = null; // Для хранения данных о посещаемости
+    let currentData = null;
 
     // ============================================
-    // Универсальная функция для обновления выпадающих списков
+    // Обновление опций выпадающего списка
     // ============================================
     function updateSelectOptions(selectElement, options, defaultLabel) {
-        const currentValue = selectElement.value; // Запоминаем текущее значение
+        const currentValue = selectElement.value;
         selectElement.innerHTML = `<option value="">${defaultLabel}</option>`;
         options.forEach(option => {
             selectElement.innerHTML += `<option value="${option.id}">${option.name}</option>`;
         });
-        // Сохраняем текущее значение, если оно есть в новом списке
         if (currentValue && options.some(opt => opt.id == currentValue)) {
             selectElement.value = currentValue;
         } else {
-            selectElement.value = ""; // Сбрасываем, если значение не найдено
+            selectElement.value = "";
         }
     }
 
     // ============================================
-    // Функция для загрузки всех предметов преподавателя
+    // Загрузка всех предметов
     // ============================================
     function loadAllLessons() {
-        return fetch('/auth/teacher/api/get_lessons_by_teacher')
+        return fetchWithCookie('/auth/teacher/api/get_lessons_by_teacher')
             .then(response => response.json())
             .then(lessons => {
                 updateSelectOptions(lessonFilter, lessons, "Все предметы");
@@ -41,10 +88,10 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     // ============================================
-    // Функция для загрузки всех групп преподавателя
+    // Загрузка всех групп
     // ============================================
     function loadAllGroups() {
-        return fetch('/auth/teacher/api/get_groups_by_teacher')
+        return fetchWithCookie('/auth/teacher/api/get_groups_by_teacher')
             .then(response => response.json())
             .then(groups => {
                 updateSelectOptions(groupFilter, groups, "Все группы");
@@ -53,12 +100,12 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     // ============================================
-    // Обновление списка групп по предмету
+    // Обновление групп по предмету
     // ============================================
     function updateGroupsByLesson() {
         const lessonId = lessonFilter.value;
         if (lessonId) {
-            return fetch(`/auth/teacher/api/get_groups_by_lesson?lesson_id=${lessonId}`)
+            return fetchWithCookie(`/auth/teacher/api/get_groups_by_lesson?lesson_id=${lessonId}`)
                 .then(response => response.json())
                 .then(groups => {
                     updateSelectOptions(groupFilter, groups, "Все группы");
@@ -70,12 +117,12 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     // ============================================
-    // Обновление списка предметов по группе
+    // Обновление предметов по группе
     // ============================================
     function updateLessonsByGroup() {
         const groupId = groupFilter.value;
         if (groupId) {
-            return fetch(`/auth/teacher/api/get_lessons_by_group?group_id=${groupId}`)
+            return fetchWithCookie(`/auth/teacher/api/get_lessons_by_group?group_id=${groupId}`)
                 .then(response => response.json())
                 .then(lessons => {
                     updateSelectOptions(lessonFilter, lessons, "Все предметы");
@@ -103,18 +150,17 @@ document.addEventListener("DOMContentLoaded", function () {
             format: "json"
         });
 
-        fetch(`/auth/teacher/dashboard?${params.toString()}`)
+        fetchWithCookie(`/auth/teacher/dashboard?${params.toString()}`)
             .then(response => response.json())
             .then(data => {
-                attendanceTables.innerHTML = ""; // Очищаем контейнер
-                currentData = data; // Сохраняем данные для выгрузки
+                attendanceTables.innerHTML = "";
+                currentData = data;
 
                 if (data.message) {
                     attendanceTables.innerHTML = `<p>${data.message}</p>`;
                     return;
                 }
 
-                // Сортировка: сначала по предмету (lesson_name), затем по группе (groupname)
                 data.attendance_by_group.sort((a, b) => {
                     if (a.lesson_name < b.lesson_name) return -1;
                     if (a.lesson_name > b.lesson_name) return 1;
@@ -164,7 +210,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     // ============================================
-    // Функция для выгрузки данных в Excel
+    // Выгрузка данных в Excel
     // ============================================
     function exportToExcel() {
         if (!currentData || currentData.message) {
@@ -221,16 +267,12 @@ document.addEventListener("DOMContentLoaded", function () {
         XLSX.writeFile(wb, fileName);
     }
 
-    // ============================================
-    // Изначальная загрузка всех данных
-    // ============================================
+    // Изначальная загрузка данных
     Promise.all([loadAllLessons(), loadAllGroups()]).then(() => {
-        applyFilters(); // Загружаем данные по умолчанию
+        applyFilters();
     });
 
-    // ============================================
-    // Обработчики событий для динамического обновления фильтров
-    // ============================================
+    // Обработчики событий для обновления фильтров
     lessonFilter.addEventListener("change", () => {
         updateGroupsByLesson().then(() => applyFilters());
     });

@@ -1,7 +1,54 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // ============================================
+    // Универсальная функция fetch с включением cookie и обработкой ошибок
+    async function fetchWithCookie(url, options = {}) {
+        const csrfToken = getCookie('csrf_access_token');
+
+        // Проверка CSRF-токена для запросов, изменяющих состояние
+        if (['POST', 'PUT', 'DELETE'].includes(options.method?.toUpperCase()) && !csrfToken) {
+            console.error('CSRF-токен не найден');
+            window.location.href = '/auth/login';
+            return;
+        }
+
+        // Настройка заголовков
+        const headers = {
+            ...(options.headers || {}),
+        };
+
+        // Добавляем X-CSRF-TOKEN, если он есть
+        if (csrfToken) {
+            headers['X-CSRF-TOKEN'] = csrfToken;
+        }
+
+        // Устанавливаем Content-Type только если не указан в options и тело — строка
+        if (!headers['Content-Type'] && options.body && typeof options.body === 'string') {
+            headers['Content-Type'] = 'application/json';
+        }
+
+        const response = await fetch(url, {
+            ...options,
+            credentials: 'include', // Отправляем cookie
+            headers: headers
+        });
+
+        // Обработка ошибок 401 и 403
+        if (response.status === 401 || response.status === 403) {
+            window.location.href = '/auth/login';
+            throw new Error('Unauthorized или Forbidden');
+        }
+
+        return response;
+    }
+
+    // Функция чтения куки
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return null;
+    }
+
     // Получение ссылок на DOM-элементы
-    // ============================================
     const elements = {
         showStudents: document.getElementById("showStudents"),
         showCreateStudents: document.getElementById("showCreateStudents"),
@@ -23,25 +70,17 @@ document.addEventListener('DOMContentLoaded', () => {
         exportExcelStudents: document.getElementById("exportExcelStudents")
     };
 
-    // Элементы модального окна для прогресса загрузки
     const loadingModal = document.getElementById('loadingModal');
     const loadingText = document.getElementById('loadingText');
 
-    // Получение CSRF-токена
-    const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
-
-    // ============================================
     // Инициализация отображения
-    // ============================================
     elements.studentsList.style.display = "block";
     elements.exportExcelStudents.style.display = "inline-block";
     elements.searchFio.style.display = "block";
     loadGroups();
     loadStudents();
 
-    // ============================================
     // Автоматическое добавление тире для студенческого билета
-    // ============================================
     document.addEventListener('input', (e) => {
         if (e.target.name === 'student_id') {
             let value = e.target.value.replace(/[^0-9]/g, '');
@@ -54,21 +93,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // ============================================
+
     // Состояние сортировки таблицы студентов
-    // ============================================
     let sortState = {
-        column: null, // Активный столбец (например, "fio" или "group")
-        order: null   // Направление сортировки ("asc" или "desc")
+        column: null,
+        order: null
     };
 
-    // Функция обновления индикаторов сортировки в заголовках таблицы
     function updateSortIndicators() {
         document.querySelectorAll('#studentsTable thead th[data-column]').forEach(th => {
             const ascIndicator = th.querySelector('.sort-indicator.asc');
             const descIndicator = th.querySelector('.sort-indicator.desc');
             const column = th.getAttribute('data-column');
-
             if (column === sortState.column) {
                 if (sortState.order === 'asc') {
                     ascIndicator.classList.remove('transparent');
@@ -84,12 +120,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Функция сортировки таблицы студентов по выбранному столбцу
     function sortTable(column) {
         const tableBody = elements.tableBody;
         const rows = Array.from(tableBody.querySelectorAll('tr'));
         let columnIndex;
-        // Определяем индекс столбца: 0 - Студ. билет, 1 - ФИО, 2 - Группа, 3 - Почта, 4 - Дата рождения, 5 - Действие.
         switch (column) {
             case 'fio':
                 columnIndex = 1;
@@ -103,17 +137,12 @@ document.addEventListener('DOMContentLoaded', () => {
         rows.sort((a, b) => {
             const aValue = a.cells[columnIndex].textContent.trim();
             const bValue = b.cells[columnIndex].textContent.trim();
-            return sortState.order === 'asc'
-                ? aValue.localeCompare(bValue)
-                : bValue.localeCompare(aValue);
+            return sortState.order === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
         });
         tableBody.innerHTML = '';
         rows.forEach(row => tableBody.appendChild(row));
     }
 
-    // ============================================
-    // Обработчики кликов для сортировки по заголовкам таблицы
-    // ============================================
     document.querySelectorAll('#studentsTable thead th[data-column]').forEach(th => {
         th.addEventListener('click', () => {
             const column = th.getAttribute('data-column');
@@ -128,18 +157,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Инициализация индикаторов сортировки при загрузке страницы
     updateSortIndicators();
 
-    // ============================================
     // Переменные для работы с группами
-    // ============================================
     let selectedGroupId = null;
     let groupsList = [];
 
-    // ============================================
     // Переключение режимов отображения
-    // ============================================
     elements.showStudents.addEventListener("click", () => {
         elements.studentsList.style.display = "block";
         elements.createStudentsContainer.style.display = "none";
@@ -159,17 +183,12 @@ document.addEventListener('DOMContentLoaded', () => {
         loadGroupsForDatalist();
     });
 
-    // ============================================
-    // Экспорт студентов в Excel
-    // ============================================
     elements.exportExcelStudents.addEventListener("click", exportToExcelStudents);
 
     function exportToExcelStudents() {
         const table = document.getElementById('studentsTable');
         const rows = table.querySelectorAll('tbody tr');
         const data = [];
-
-        // Заголовки столбцов (первые 5 столбцов)
         const headers = [];
         table.querySelectorAll('thead th').forEach((th, index) => {
             if (index < 5) {
@@ -179,7 +198,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         data.push(headers);
 
-        // Сбор данных по строкам таблицы
         rows.forEach(row => {
             const rowData = [];
             row.querySelectorAll('td').forEach((td, index) => {
@@ -190,24 +208,16 @@ document.addEventListener('DOMContentLoaded', () => {
             data.push(rowData);
         });
 
-        // Создание листа Excel из массива данных
         const ws = XLSX.utils.aoa_to_sheet(data);
         const titleCell = "A1";
         if (ws[titleCell]) {
-            ws[titleCell].s = {
-                font: {bold: true},
-                alignment: {horizontal: "center"}
-            };
+            ws[titleCell].s = {font: {bold: true}, alignment: {horizontal: "center"}};
         }
         ws['!cols'] = headers.map((header, colIndex) => {
-            const maxLength = Math.max(
-                ...data.slice(1).map(row => (row[colIndex] || '').length),
-                header.length
-            );
+            const maxLength = Math.max(...data.slice(1).map(row => (row[colIndex] || '').length), header.length);
             return {wch: maxLength + 2};
         });
 
-        // Добавление рамок к ячейкам
         const range = XLSX.utils.decode_range(ws['!ref']);
         for (let R = 1; R <= range.e.r; ++R) {
             for (let C = 0; C < 5; ++C) {
@@ -228,11 +238,9 @@ document.addEventListener('DOMContentLoaded', () => {
         XLSX.writeFile(wb, `Список студентов на ${new Date().toISOString().split('T')[0]}.xlsx`);
     }
 
-    // ============================================
-    // Загрузка списка групп для фильтрации
-    // ============================================
+    // Загрузка списка групп
     function loadGroups() {
-        fetch('/auth/admin/api/groups')
+        fetchWithCookie('/auth/admin/api/groups')
             .then(response => response.json())
             .then(data => {
                 groupsList = data;
@@ -246,11 +254,8 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     }
 
-    // ============================================
-    // Загрузка списка групп для автодополнения
-    // ============================================
     function loadGroupsForDatalist() {
-        fetch('/auth/admin/api/groups')
+        fetchWithCookie('/auth/admin/api/groups')
             .then(response => response.json())
             .then(data => {
                 elements.groupsDatalist.innerHTML = '';
@@ -262,12 +267,10 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     }
 
-    // ============================================
     // Загрузка списка студентов
-    // ============================================
     function loadStudents() {
         const groupId = elements.groupFilter.value;
-        fetch(`/auth/admin/api/students?group_id=${groupId || ''}`)
+        fetchWithCookie(`/auth/admin/api/students?group_id=${groupId || ''}`)
             .then(response => response.json())
             .then(data => {
                 const tableBody = elements.studentsTable.querySelector('tbody');
@@ -287,18 +290,14 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     }
 
-    // ============================================
-    // Удаление студента по клику на кнопку "Удалить"
-    // ============================================
+    // Удаление студента
     elements.studentsTable.addEventListener('click', (e) => {
         if (e.target.classList.contains('removeRow')) {
             const id = e.target.getAttribute('data-id');
             if (confirm('Вы уверены, что хотите удалить этого студента?')) {
-                fetch(`/auth/admin/api/delete_student/${id}`, {
+                fetchWithCookie(`/auth/admin/api/delete_student/${id}`, {
                     method: 'DELETE',
-                    headers: {
-                        'X-CSRFToken': csrfToken
-                    }
+                    headers: {}
                 })
                     .then(response => response.json())
                     .then(data => {
@@ -312,14 +311,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // ============================================
-    // Фильтрация студентов по выбранной группе
-    // ============================================
     elements.groupFilter.addEventListener('change', loadStudents);
 
-    // ============================================
-    // Поиск студентов по ФИО
-    // ============================================
     elements.searchFio.addEventListener('input', () => {
         const filter = elements.searchFio.value.toLowerCase();
         const rows = elements.studentsTable.querySelectorAll('tbody tr');
@@ -329,39 +322,28 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // ============================================
     // Обработка кнопки "Далее" для выбора группы
-    // ============================================
     elements.nextButton.addEventListener('click', () => {
         const groupName = elements.groupInput.value.trim();
-
-        // Проверка на пустое значение
         if (!groupName) {
             alert('Пожалуйста, выберите или введите группу');
             return;
         }
 
-        // Поиск группы с нечувствительностью к регистру
         const existingGroup = groupsList.find(group => group.groupname.toLowerCase() === groupName.toLowerCase());
-
         if (existingGroup) {
             selectedGroupId = existingGroup.id;
             showStudentForm();
         } else {
             if (confirm(`Группа "${groupName}" не найдена. Создать новую группу?`)) {
-                // Валидация длины
                 if (groupName.length > 10) {
                     alert('Название группы не должно превышать 10 символов');
                     return;
                 }
-
-
-                fetch('/auth/admin/api/add_group', {
+                // Используем fetch с cookie; XMLHttpRequest заменён на fetch
+                fetchWithCookie('/auth/admin/api/add_group', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrfToken
-                    },
+                    headers: {},
                     body: JSON.stringify({groupname: groupName})
                 })
                     .then(response => response.json())
@@ -369,7 +351,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (data.success) {
                             selectedGroupId = data.id;
                             groupsList.push({id: data.id, groupname: groupName});
-                            // Обновление datalist
                             const option = document.createElement('option');
                             option.value = groupName;
                             elements.groupsDatalist.appendChild(option);
@@ -377,34 +358,23 @@ document.addEventListener('DOMContentLoaded', () => {
                         } else {
                             alert(data.message || 'Не удалось создать группу');
                         }
-                    })
-                    .catch(error => {
-                        console.error('Ошибка при создании группы:', error);
-                        alert('Не удалось создать группу. Попробуйте позже.');
-                    })
+                    });
             }
         }
     });
 
-    // ============================================
-    // Функция показа формы добавления студентов
-    // ============================================
+    // Показ формы добавления студентов
     function showStudentForm() {
         elements.groupSelection.style.display = "none";
         elements.studentForm.style.display = "block";
-
-        // Получаем tbody таблицы для формы создания студентов
         const tbody = elements.createTable.querySelector('tbody');
-        // Очищаем таблицу от предыдущих строк
         tbody.innerHTML = '';
 
-        // Устанавливаем текущую дату и минимальную дату для поля "Дата рождения"
         const today = new Date().toISOString().split('T')[0];
         const minDate = new Date();
         minDate.setFullYear(minDate.getFullYear() - 120);
         const minDateString = minDate.toISOString().split('T')[0];
 
-        // Создаем и добавляем новую строку в таблицу
         const row = document.createElement('tr');
         row.innerHTML = `
             <td><input type="text" name="student_id" placeholder="21-01087" pattern="\\d{2}-\\d{5}" maxlength="8" required></td>
@@ -423,9 +393,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tbody.appendChild(row);
     }
 
-    // ============================================
-    // Функция добавления нескольких строк в форму
-    // ============================================
+    // Добавление строк в форму
     function addRow() {
         const count = parseInt(elements.rowCount.value) || 1;
         const tbody = elements.createTable.querySelector('tbody');
@@ -454,23 +422,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Обработчик кнопки для добавления строк в форму
-    elements.addRows.addEventListener('click', () => {
-        addRow();
-    });
+    elements.addRows.addEventListener('click', addRow);
 
-    // ============================================
-    // Удаление строки из формы создания студентов
-    // ============================================
     elements.createTable.addEventListener('click', (e) => {
         if (e.target.classList.contains('removeRow')) {
             e.target.closest('tr').remove();
         }
     });
 
-    // ============================================
-    // Отправка формы добавления студентов с анимацией загрузки
-    // ============================================
+    // Отправка формы добавления студентов
     elements.createStudentsForm.addEventListener('submit', (e) => {
         e.preventDefault();
 
@@ -479,18 +439,15 @@ document.addEventListener('DOMContentLoaded', () => {
         let emails = new Set();
         let duplicates = false;
 
-        // Проверка на дубликаты внутри формы
         rows.forEach((row) => {
             const student_id = row.querySelector('input[name="student_id"]').value.trim();
             const email = row.querySelector('input[name="mail"]').value.trim();
-
             if (studentIds.has(student_id)) {
                 alert(`Ошибка: Студенческий билет ${student_id} уже используется в форме!`);
                 duplicates = true;
             } else {
                 studentIds.add(student_id);
             }
-
             if (emails.has(email)) {
                 alert(`Ошибка: Почта ${email} уже используется в форме!`);
                 duplicates = true;
@@ -499,12 +456,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Если дубликаты найдены, прерываем отправку
-        if (duplicates) {
-            return;
-        }
+        if (duplicates) return;
 
-        // Формирование FormData для отправки формы
         const formData = new FormData();
         formData.append('group_id', selectedGroupId);
 
@@ -524,23 +477,16 @@ document.addEventListener('DOMContentLoaded', () => {
             formData.append(`students[${index}][photo]`, photo);
         });
 
-        console.log("Group ID:", selectedGroupId);
-        console.log("FormData contents:");
-        for (let [key, value] of formData.entries()) {
-            console.log(`${key}: ${value}`);
-        }
-
-        // Проверка дубликатов на сервере перед отправкой формы
+        // Сначала проверяем дубликаты
         const xhrCheck = new XMLHttpRequest();
         xhrCheck.open('POST', '/auth/admin/api/check_duplicates', true);
-        xhrCheck.setRequestHeader('X-CSRFToken', csrfToken);
+        xhrCheck.withCredentials = true;
 
         xhrCheck.onreadystatechange = function () {
             if (xhrCheck.readyState === XMLHttpRequest.DONE) {
                 if (xhrCheck.status === 200) {
                     const response = JSON.parse(xhrCheck.responseText);
                     if (response.success) {
-                        // Если дубликатов нет, показываем модальное окно и отправляем данные
                         loadingText.textContent = 'Загрузка данных для обработки...';
                         loadingModal.style.display = 'block';
                         document.body.classList.add('modal-open');
@@ -554,7 +500,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         const xhr = new XMLHttpRequest();
                         xhr.open('POST', '/auth/admin/api/add_students', true);
-                        xhr.setRequestHeader('X-CSRFToken', csrfToken);
+                        xhr.withCredentials = true;
 
                         xhr.onreadystatechange = function () {
                             if (xhr.readyState === XMLHttpRequest.DONE) {
@@ -570,29 +516,25 @@ document.addEventListener('DOMContentLoaded', () => {
                                     } else {
                                         alert(response.message || 'Ошибка при добавлении');
                                     }
+                                } else if (xhr.status === 401) {
+                                    window.location.href = '/auth/login';
                                 } else {
                                     alert('Ошибка при отправке данных.');
                                 }
                             }
                         };
-
                         xhr.send(formData);
                     } else {
-                        // Если сервер вернул response.success = false
                         alert(response.message || 'Ошибка при проверке');
                     }
-                } else if (xhrCheck.status === 400) {
-                    // Обработка ошибки 400 и вывод сообщения от сервера
+                } else if (xhrCheck.status === 401) {
+                    window.location.href = '/auth/login';
+                } else {
                     const response = JSON.parse(xhrCheck.responseText);
                     alert(response.message || 'Ошибка при проверке дубликатов');
-                } else {
-                    // Для остальных ошибок, например, 500
-                    alert('Ошибка при проверке дубликатов. Статус: ' + xhrCheck.status);
                 }
             }
         };
-
         xhrCheck.send(formData);
     });
-    // --- Конец блока отправки формы ---
 });

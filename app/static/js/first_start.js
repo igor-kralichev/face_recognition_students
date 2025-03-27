@@ -1,37 +1,28 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // ============================================
-    // Считывание значений из атрибутов body
-    // ============================================
+    // Значения из атрибутов body
     const firstStart = document.body.getAttribute('data-first-start') === 'True';
     const userId = document.body.getAttribute('data-user-id');
     const userType = document.body.getAttribute('data-user-type'); // 'admin' или 'teacher'
 
-    // ============================================
-    // Получение ссылок на элементы модального окна
-    // ============================================
+    // Элементы модального окна
     const modal = document.getElementById('passwordModal');
     const closeModal = document.querySelector('.modal .close');
     const savePasswordBtn = document.getElementById('savePasswordBtn');
 
-    // ============================================
-    // Отображение модального окна, если это первый вход
-    // ============================================
+
+    // Показ модального окна при первом входе
     if (firstStart) {
         modal.style.display = 'block';
         document.body.classList.add('modal-open');
     }
 
-    // ============================================
-    // Закрытие модального окна по клику на крестик
-    // ============================================
+    // Закрытие модального окна по клику
     closeModal.addEventListener('click', () => {
         modal.style.display = 'none';
         document.body.classList.remove('modal-open');
     });
 
-    // ============================================
-    // Привязка событий для кнопок "глаз" (переключение видимости пароля)
-    // ============================================
+    // Переключение видимости пароля
     const togglePasswordButtons = document.querySelectorAll('.toggle-password');
     togglePasswordButtons.forEach(button => {
         button.addEventListener('click', () => {
@@ -42,9 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // ============================================
     // Обработка сохранения нового пароля
-    // ============================================
     savePasswordBtn.addEventListener('click', async () => {
         const newPassword = document.getElementById('newPassword').value;
         const confirmPassword = document.getElementById('confirmPassword').value;
@@ -54,9 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // ============================================
-        // Определение URL для обновления пароля в зависимости от типа пользователя
-        // ============================================
+        // Определение URL в зависимости от типа пользователя
         let url;
         if (userType === 'admin') {
             url = `/auth/admin/api/update_password/${userId}`;
@@ -67,17 +54,20 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // ============================================
-        // Отправка запроса на сервер для обновления пароля
-        // ============================================
+        // Отправка запроса на обновление пароля; JWT-токен будет передан через cookie
         const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
             },
+            credentials: 'include',
             body: JSON.stringify({new_password: newPassword})
         });
+
+        if (response.status === 401) {
+            window.location.href = '/auth/login';
+            return;
+        }
 
         const data = await response.json();
         if (data.success) {
