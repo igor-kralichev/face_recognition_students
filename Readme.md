@@ -10,6 +10,8 @@ FLASK_DEBUG=1
 # Secret key
 SECRET_KEY='Insert_Your_secrete_key'
 
+# JWT Secret key
+JWT_SECRET_KEY='Insert_Your_JWT_secrete_key'
 
 # Settings for connecting to postgres
 DB_HOST=localhost
